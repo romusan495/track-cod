@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.superpowers/
+/captures/
+*.pyc
+.pytest_cache/
+dist/
+build/
+
+worker/node_modules/
+worker/.wrangler/
+worker/.dev.vars
