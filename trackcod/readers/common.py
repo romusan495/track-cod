@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from dataclasses import dataclass
 
@@ -12,7 +13,12 @@ class OcrLine:
     h: float
 
 
+_LOOK_ALIKE = re.compile(r"(?<=[A-Z])[01](?=[A-Z])|(?<![A-Z0-9])0(?=[A-Z]{2})|(?<=[A-Z]{2})0(?![A-Z0-9])")
+
+
 def norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
-    return " ".join(s.upper().split())
+    s = " ".join(s.upper().split())
+    # OCR look-alikes inside words: VICT0IRE -> VICTOIRE, MILITA1RE -> MILITAIRE (PM-40, KG-7 stay as they are)
+    return _LOOK_ALIKE.sub(lambda m: "O" if m.group(0) == "0" else "I", s)

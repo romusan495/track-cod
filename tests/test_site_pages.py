@@ -47,3 +47,8 @@ def test_build_pages_writes_index_and_sitemap(tmp_path):
     sitemap = (tmp_path / "sitemap.xml").read_text(encoding="utf-8")
     assert "/armes/m4</loc>" in sitemap and "/transparence.html</loc>" in sitemap and "/armes</loc>" in sitemap
     assert out == 2
+
+
+def test_weapon_page_gives_a_tip_per_challenge():
+    html = weapon_page(REZI)
+    assert "Conseil" in html and "petite carte" in html and "grande carte" in html

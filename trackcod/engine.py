@@ -22,7 +22,7 @@ from trackcod.readers.class_screen import read_class_weapon
 from trackcod.readers.item_unlock import read_item_unlock
 from trackcod.readers.player import read_player_level
 from trackcod.sheets import _erudit_needs_specials, answer_camo, apply_tile_locks, count_item_unlock, display_name
-from trackcod.sheets import apply_apparence, mark_unlocked, new_sheet, seed_specials
+from trackcod.sheets import apply_apparence, count_match, mark_unlocked, new_sheet, seed_specials
 from trackcod.stats import calibrate, record_match
 from trackcod.store import append_match, save_state
 from trackcod.weapons import WeaponRegistry
@@ -243,6 +243,8 @@ class Engine:
             m.map = self._current_map
             self._scoreboard_seen_at = now
             if record_match(self.state, m):
+                if m.kills > 0 and m.weapon in self.state.sheets:
+                    count_match(self.state.sheets[m.weapon])
                 append_match(m, self.matches_path)
                 self.state.phase, self.state.phase_at = "post_match", now
                 self.on_stats_changed()

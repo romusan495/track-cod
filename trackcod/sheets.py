@@ -331,6 +331,8 @@ def apply_apparence(sheet: WeaponSheet, reading: ApparenceReading, weapon_confir
             camo.items_left = None
         camo.challenge_fr = read.challenge_fr or camo.challenge_fr
         if read.progress is not None:
+            camo.matches_stalled = camo.matches_stalled + camo.matches_unread if camo.progress == read.progress else 0
+            camo.matches_unread = 0
             camo.progress = read.progress
         camo.read_at = reading.at
         if read.progress is not None and read.progress[0] >= read.progress[1]:
@@ -385,6 +387,13 @@ def mark_unlocked(sheet: WeaponSheet, section: str, number: int | None = None, n
 def specials_missing(sheet: WeaponSheet) -> bool:
     """Or (first Érudit) needs the 3 special camos: while one is not done, the whole Érudit is out of reach."""
     return any(c.section == "special" and c.state != "done" for c in sheet.camos)
+
+
+def count_match(sheet: WeaponSheet) -> None:
+    """A match with kills was played with this weapon: its target camo's counter should move."""
+    target = next_camo(sheet)
+    if target is not None and target.progress is not None and target.state != "done":
+        target.matches_unread += 1
 
 
 def next_camo(sheet: WeaponSheet) -> Camo | None:

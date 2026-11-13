@@ -336,3 +336,23 @@ def test_erudit_locked_while_specials_are_locked():
         if c.section == "special":
             c.state = "done"
     assert next_camo(s).key == "erudit:1"
+
+
+def _target(s):
+    apply_apparence(s, _read("ASPHALTE", progress=(10, 50), counts={"military": (0, 0), "special": (0, 3)}))
+    return next_camo(s)
+
+
+def test_counter_that_does_not_move_after_matches_is_stalled():
+    from trackcod.sheets import count_match
+    s = _sheet()
+    c = _target(s)
+    assert c.name_fr == "ASPHALTE" and c.matches_stalled == 0
+    for _ in range(3):
+        count_match(s)
+    assert c.matches_unread == 3 and c.matches_stalled == 0        # not read again yet: nothing known
+    apply_apparence(s, _read("ASPHALTE", progress=(10, 50), at=2.0))
+    assert c.matches_unread == 0 and c.matches_stalled == 3
+    count_match(s)
+    apply_apparence(s, _read("ASPHALTE", progress=(12, 50), at=3.0))   # it moved: all good again
+    assert c.matches_stalled == 0 and c.matches_unread == 0

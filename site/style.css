@@ -208,3 +208,4 @@ ul.never li::before { content: "✖"; position: absolute; left: 4px; color: var(
 .foot-links a:hover { color: var(--accent); }
 .share { margin-top: 12px; width: 100%; }
 .league-code { font-size: 40px; letter-spacing: 8px; }
+.doc .tip { color: var(--muted); font-size: 12px; }

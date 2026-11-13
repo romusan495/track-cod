@@ -15,6 +15,7 @@ from pathlib import Path
 
 from trackcod.known_camos import KnownCamos, KnownSpecial
 from trackcod.sheets import ERUDIT_CHALLENGES, PLATINE_GOAL
+from trackcod.tips import tip
 
 SITE = "https://track-cod.romusangames.workers.dev"
 DOWNLOAD_URL = "https://github.com/romusan495/track-cod/releases/latest"
@@ -88,6 +89,11 @@ def _tracker_pitch(name: str) -> str:
             f'      <p><a class="dl big" href="{DOWNLOAD_URL}" data-download>⬇ Télécharger Track COD</a></p>')
 
 
+def _tip(challenge: str) -> str:
+    t = tip(challenge)
+    return f'<br><small class="tip">Conseil : {e(t)}</small>' if t else ""
+
+
 def _erudit(category: str) -> str:
     challenges = ERUDIT_CHALLENGES.get(category)
     if not challenges:
@@ -99,9 +105,9 @@ def _erudit(category: str) -> str:
                  else "il faut aussi l'Or sur d'autres armes de la catégorie")
     return f"""<h2>Camos Érudit ({e(category.lower())})</h2>
       <ol class="check">
-        <li><strong>Or</strong> : {gold}. Se débloque une fois les 3 camos spéciaux obtenus.</li>
-        <li><strong>Platine</strong> : {platine}. En plus de l'Or sur cette arme, {e(plat_rule)}.</li>
-        <li><strong>Rupture harmonique</strong> : {rupture}. Demande 33 armes en Platine, toutes catégories confondues.</li>
+        <li><strong>Or</strong> : {gold}. Se débloque une fois les 3 camos spéciaux obtenus.{_tip(challenges[0])}</li>
+        <li><strong>Platine</strong> : {platine}. En plus de l'Or sur cette arme, {e(plat_rule)}.{_tip(challenges[1])}</li>
+        <li><strong>Rupture harmonique</strong> : {rupture}. Demande 33 armes en Platine, toutes catégories confondues.{_tip(challenges[2])}</li>
         <li><strong>Divergence</strong> : débloqué automatiquement après 33 armes en Rupture harmonique.</li>
       </ol>"""
 
@@ -112,7 +118,8 @@ def weapon_page(w: Weapon) -> str:
     description = (f"Tous les camos {w.name} ({w.category.lower()}) dans Call of Duty MW4 : les camos spéciaux "
                    f"dans l'ordre{' (' + first + '…)' if first else ''}, leurs défis en français, puis Or, Platine, "
                    f"Rupture harmonique et Divergence.")
-    specials = "\n".join(f"        <li><strong>{e(s.name_fr)}</strong> : {e(s.challenge_fr)}</li>" for s in w.specials)
+    specials = "\n".join(f"        <li><strong>{e(s.name_fr)}</strong> : {e(s.challenge_fr)}{_tip(s.challenge_fr)}</li>"
+                         for s in w.specials)
     return _head(title, description, f"/armes/{slug(w.name)}") + f"""  <a class="back" href="/armes">← Toutes les armes</a>
 
   <div class="layout doc">

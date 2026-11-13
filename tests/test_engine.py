@@ -271,3 +271,18 @@ def test_scoreboard_time_stamps_post_match(env):
     frames.append(load("scoreboard_victoire"))
     e.step()
     assert e.state.phase == "post_match" and e.state.phase_at == clock.t
+
+
+def test_a_match_with_kills_counts_for_the_target_camo(env):
+    make, frames, clock, _ = env
+    e = make()
+    frames.append(load("match_start_iso"))
+    e.step()
+    sheet = e.state.sheets["ISO NIGHTSHADE"]
+    from trackcod.sheets import apply_apparence, ApparenceCamo, ApparenceReading, next_camo
+    apply_apparence(sheet, ApparenceReading([ApparenceCamo("ASPHALTE", "special", None, None, None, None, (1, 50),
+                                                           False, None)], {"military": (0, 0), "special": (0, 3)}, at=1))
+    clock.t += 600
+    frames.append(load("scoreboard_victoire"))
+    e.step()
+    assert next_camo(sheet).matches_unread == 1

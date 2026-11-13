@@ -341,3 +341,21 @@ def test_compact_flag_follows_state():
     assert build_view(s, AT).compact is False
     s.compact = True
     assert build_view(s, AT).compact is True
+
+
+def test_stalled_counter_warns_after_three_matches():
+    s = _state()
+    _learn(s, ApparenceCamo("ASPHALTE", "special", None, None, None, "Faites 50 éliminations", (10, 50), False, None),
+           counts={"military": (0, 0), "special": (0, 3)})
+    c = next(c for c in s.sheets[W].camos if c.name_fr == "ASPHALTE")
+    c.matches_stalled = 2
+    assert build_view(s, AT).current.stalled is None
+    c.matches_stalled = 3
+    assert "3 parties" in build_view(s, AT).current.stalled
+
+
+def test_current_camo_has_a_tip():
+    s = _state()
+    _learn(s, ApparenceCamo("ASPHALTE", "special", None, None, None, "Faites 20 éliminations de joueurs à bout portant",
+                            (1, 20), False, None), counts={"military": (0, 0), "special": (0, 3)})
+    assert "petite carte" in build_view(s, AT).current.tip

@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from trackcod.tips import tip
 from trackcod.model import AppState, Camo
 from trackcod.readers.common import norm
 from trackcod.publish import SITE_URL
@@ -31,6 +32,8 @@ class CurrentView:
     counter: str
     thumb: str | None = None  # thumbnail learned from the player's Apparence screen
     ask_key: str | None = None  # state unknown: ask the player whether they already have it
+    tip: str | None = None      # how to finish this challenge faster
+    stalled: str | None = None  # counter unchanged after several matches: the challenge may not count
 
 
 @dataclass
@@ -245,6 +248,7 @@ def _mastery(state: AppState, meta) -> tuple[list[tuple[str, str]], str]:
     return rows, f"d'après {n} arme{'s' if n > 1 else ''} apprise{'s' if n > 1 else ''}"
 
 
+STALL_MATCHES = 3
 MATCH_MAX_S = 45 * 60  # longer than any match: past this, the player left without a scoreboard
 
 
@@ -269,6 +273,11 @@ def build_view(state: AppState, now: float, meta=None, thumbs_dir=None, history=
                                   _challenge(nxt, sheet.category) or "défi inconnu", counter)
             if nxt.state == "unknown":
                 current.ask_key = nxt.key
+            current.tip = tip(current.challenge)
+            if nxt.matches_stalled >= STALL_MATCHES:
+                current.stalled = (f"Le compteur n'a pas bougé en {nxt.matches_stalled} parties avec cette arme. "
+                                   "Vérifie la condition du défi ; s'il ne compte vraiment plus, relance le jeu "
+                                   "(bug connu de Call of Duty).")
             if thumbs_dir is not None:
                 path = thumb_path(thumbs_dir, state.weapon, nxt.section, camo_index(sheet, nxt))
                 current.thumb = str(path) if path else None

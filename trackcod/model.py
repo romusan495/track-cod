@@ -24,6 +24,8 @@ class Camo:
     read_at: float | None = None
     name_votes: dict[str, int] = field(default_factory=dict)   # normalized name -> OCR reads
     name_forms: dict[str, str] = field(default_factory=dict)   # normalized name -> most readable raw form
+    matches_unread: int = 0    # matches played with this camo as target since its counter was last read
+    matches_stalled: int = 0   # matches after which a fresh read showed the very same counter
 
 
 @dataclass

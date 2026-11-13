@@ -194,7 +194,7 @@ class CompactWindow(QWidget):
         if c is not None:
             self._name.setText(f"{c.name} · {c.section_label}")
             self._challenge.setText(c.challenge)
-            self._counter.setText(c.counter)
+            self._counter.setText(c.counter + (" · ⚠ ne bouge plus" if c.stalled else ""))
         else:
             self._name.setText("Aucun camo à faire" if not view.sheet_note else "Arme pas encore apprise")
             self._challenge.setText(view.sheet_note or "rien à viser pour l'instant sur cette arme")
@@ -502,6 +502,10 @@ class MainWindow(QMainWindow):
             lay.addWidget(t)
             lay.addWidget(_label(view.current.challenge, wrap=True))
             lay.addWidget(_label(view.current.counter, "muted"))
+            if view.current.tip:
+                lay.addWidget(_label(f"Conseil : {view.current.tip}", "muted", wrap=True))
+            if view.current.stalled:
+                lay.addWidget(_label(view.current.stalled, "notice", wrap=True))
             if view.current.ask_key:
                 ask = QHBoxLayout()
                 ask.addWidget(_label("Tu l'as déjà ?", "notice"))
