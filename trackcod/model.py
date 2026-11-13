@@ -79,6 +79,7 @@ class AppState:
     global_stats: GlobalStats = field(default_factory=GlobalStats)
     seen_fingerprints: list[str] = field(default_factory=list)
     phase: Phase = "unknown"
+    phase_at: float | None = None  # when the phase was last set (a match left without a scoreboard ends)
     notices: list[str] = field(default_factory=list)
     window_geometry: tuple[int, int, int, int] | None = None
     always_on_top: bool = False
@@ -92,5 +93,7 @@ class AppState:
     site_key: str | None = None   # secret given by the site at registration; stays on this PC
     site_show_camos: bool = False
     site_leagues: list[dict] = field(default_factory=list)  # [{"code": "QG7K2P", "name": "CoDQG France"}]
+    compact: bool = False         # small always-on-top window instead of the full one (hidden during a match)
+    compact_geometry: tuple[int, int, int, int] | None = None
     reading_suspended: str | None = None  # remote switch off: message shown; None = screen reading allowed
     version: int = 3

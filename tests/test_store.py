@@ -122,3 +122,10 @@ def test_raw_site_category_translated_on_load(tmp_path):
     st = AppState(sheets={"PILA": WeaponSheet("PILA", "LAUNCHER", [])})  # saved before 'Lanceur' existed
     save_state(st, tmp_path / "s.json")
     assert load_state(tmp_path / "s.json").sheets["PILA"].category == "Lanceur"
+
+
+def test_compact_mode_and_phase_time_are_saved(tmp_path):
+    s = AppState(phase="in_match", phase_at=123.0, compact=True, compact_geometry=(10, 20, 300, 110))
+    save_state(s, tmp_path / "state.json")
+    t = load_state(tmp_path / "state.json")
+    assert (t.phase_at, t.compact, t.compact_geometry) == (123.0, True, (10, 20, 300, 110))

@@ -322,3 +322,22 @@ def test_window_draws_the_history_chart():
     w.show()
     chart.grab()  # paints without error
     w.close()
+
+
+def test_playing_only_during_a_recent_match():
+    s = _state()
+    assert build_view(s, AT).playing is False
+    s.phase, s.phase_at = "in_match", AT - 60
+    assert build_view(s, AT).playing is True
+    assert build_view(s, AT + 50 * 60).playing is False   # match long over (left without a scoreboard)
+    s.phase = "post_match"
+    assert build_view(s, AT).playing is False
+    s.phase, s.phase_at = "in_match", None                  # state saved by an older version
+    assert build_view(s, AT).playing is False
+
+
+def test_compact_flag_follows_state():
+    s = _state()
+    assert build_view(s, AT).compact is False
+    s.compact = True
+    assert build_view(s, AT).compact is True

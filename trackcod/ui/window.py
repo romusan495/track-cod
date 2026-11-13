@@ -33,6 +33,10 @@ QCheckBox {{ color: {MUTED}; font-size: 11px; }}
 QFrame#meta {{ background: {PANEL}; border-left: 3px solid {BLUE}; border-radius: 6px; }}
 QComboBox {{ color: {TXT}; background: {BG}; border: 1px solid {LINE}; border-radius: 4px; padding: 2px 6px; }}
 QScrollArea {{ border: none; background: transparent; }}
+QPushButton#compact, QPushButton#expand {{ color: {MUTED}; background: transparent; border: 1px solid {LINE};
+                                         border-radius: 4px; padding: 1px 8px; font-size: 11px; }}
+QPushButton#compact:hover, QPushButton#expand:hover {{ color: {ACCENT}; border-color: {ACCENT}; }}
+QWidget#mini {{ background: rgba(13, 15, 18, 235); border-left: 3px solid {ACCENT}; }}
 """
 
 ICON_PATH = Path(__file__).resolve().parents[1] / "assets" / "icon.png"
@@ -145,6 +149,70 @@ def _stats_grid(rows: list[tuple[str, str]], columns: int = 4) -> QWidget:
     return w
 
 
+class CompactWindow(QWidget):
+    """Small always-on-top window: the weapon and the camo to do. Never shown during a match (see View.playing)."""
+
+    def __init__(self, on_expand: Callable[[], None]):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Track COD")
+        self.setWindowIcon(app_icon())
+        self.setStyleSheet(STYLE)
+        self.setFixedWidth(300)
+        self.setWindowOpacity(0.93)
+        self._drag = None
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        box = QWidget()
+        box.setObjectName("mini")
+        box.setAttribute(Qt.WA_StyledBackground, True)
+        outer.addWidget(box)
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(10, 6, 8, 8)
+        lay.setSpacing(2)
+        top = QHBoxLayout()
+        self._weapon = _label("")
+        self._weapon.setStyleSheet(f"color: {ACCENT}; font-size: 11px; font-weight: 700;")
+        top.addWidget(self._weapon, 1)
+        expand = QPushButton("⤢ Agrandir")
+        expand.setObjectName("expand")
+        expand.setCursor(Qt.PointingHandCursor)
+        expand.setToolTip("Revenir à la grande fenêtre")
+        expand.clicked.connect(on_expand)
+        top.addWidget(expand)
+        lay.addLayout(top)
+        self._name = _label("")
+        self._name.setStyleSheet("font-size: 15px; font-weight: 700;")
+        self._challenge = _label("", wrap=True)
+        self._counter = _label("", "muted")
+        for w in (self._name, self._challenge, self._counter):
+            lay.addWidget(w)
+        self.setToolTip("Glisse pour déplacer · se cache tout seul pendant les parties")
+
+    def render(self, view: View) -> None:
+        self._weapon.setText(f"{view.weapon.upper()}{' · ' + view.category if view.category else ''}")
+        c = view.current
+        if c is not None:
+            self._name.setText(f"{c.name} · {c.section_label}")
+            self._challenge.setText(c.challenge)
+            self._counter.setText(c.counter)
+        else:
+            self._name.setText("Aucun camo à faire" if not view.sheet_note else "Arme pas encore apprise")
+            self._challenge.setText(view.sheet_note or "rien à viser pour l'instant sur cette arme")
+            self._counter.setText("")
+        self.adjustSize()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._drag = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, event):
+        if self._drag is not None and event.buttons() & Qt.LeftButton:
+            self.move(event.globalPosition().toPoint() - self._drag)
+
+    def mouseReleaseEvent(self, event):
+        self._drag = None
+
+
 class MainWindow(QMainWindow):
     state_changed = Signal()
     update_available = Signal(object)   # trackcod.updater.Release, emitted from the update-check thread
@@ -156,7 +224,8 @@ class MainWindow(QMainWindow):
                  on_camo_answer: Callable[[str, bool], None] = lambda key, has: None,
                  on_prestige: Callable[[int], None] = lambda prestige: None,
                  on_site_change: Callable[[bool, str, bool], None] = lambda published, pseudo, camos: None,
-                 on_league: Callable[[str, str], None] = lambda action, value: None):
+                 on_league: Callable[[str, str], None] = lambda action, value: None,
+                 on_compact: Callable[[bool], None] = lambda on: None):
         super().__init__()
         self.setWindowTitle("Track COD")
         self.setWindowIcon(app_icon())
@@ -170,6 +239,10 @@ class MainWindow(QMainWindow):
         self._on_prestige = on_prestige
         self._on_site_change = on_site_change
         self._on_league = on_league
+        self._on_compact = on_compact
+        self._compact = False
+        self._playing = False
+        self.compact_window = CompactWindow(lambda: self._set_compact(False))
         self._site_draft = ""      # pseudo being typed: survives the re-renders
         self._site_hint = ""
         scroll = QScrollArea()
@@ -187,10 +260,33 @@ class MainWindow(QMainWindow):
 
     def _apply_on_top(self, on: bool) -> None:
         self._always_on_top = on
+        self._sync_on_top()
+
+    def _sync_on_top(self) -> None:
+        on = self._always_on_top and not self._playing  # never over the game during a match
+        if bool(self.windowFlags() & Qt.WindowStaysOnTopHint) == on:
+            return
         was_visible = self.isVisible()  # changing a window flag hides the window
         self.setWindowFlag(Qt.WindowStaysOnTopHint, on)
         if was_visible:
             self.show()
+
+    def _set_compact(self, on: bool) -> None:
+        if on == self._compact:
+            return
+        self._compact = on
+        self._sync_windows(switched=True)
+        self._on_compact(on)
+
+    def _sync_windows(self, switched: bool = False) -> None:
+        if self._compact:
+            self.hide()
+            self.compact_window.setVisible(not self._playing)
+        else:
+            self.compact_window.hide()
+            if switched:
+                self.show()
+                self.raise_()
 
     def _toggle_on_top(self, on: bool) -> None:
         self._apply_on_top(on)
@@ -329,6 +425,12 @@ class MainWindow(QMainWindow):
             self._on_prestige(value)
 
     def render(self, view: View) -> None:
+        self._playing = view.playing
+        switched = view.compact != self._compact
+        self._compact = view.compact
+        self.compact_window.render(view)
+        self._sync_windows(switched)
+        self._sync_on_top()
         while self._layout.count():
             item = self._layout.takeAt(0)
             if item.widget():
@@ -349,9 +451,21 @@ class MainWindow(QMainWindow):
         bar.setLayout(top)
         add(bar)
         on_top = QCheckBox("Toujours au premier plan")
+        on_top.setObjectName("on_top")
         on_top.setChecked(self._always_on_top)
         on_top.toggled.connect(self._toggle_on_top)
-        add(on_top)
+        compact = QPushButton("⤡ Compact")
+        compact.setObjectName("compact")
+        compact.setCursor(Qt.PointingHandCursor)
+        compact.setToolTip("Petite fenêtre au premier plan avec le camo à faire. Elle se cache pendant les parties.")
+        compact.clicked.connect(lambda: self._set_compact(True))
+        options = QHBoxLayout()
+        options.addWidget(on_top)
+        options.addStretch(1)
+        options.addWidget(compact)
+        ow = QWidget()
+        ow.setLayout(options)
+        add(ow)
 
         head = QHBoxLayout()
         weapon = QPushButton(view.weapon.upper())

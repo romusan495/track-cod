@@ -22,9 +22,9 @@ def test_always_on_top_keeps_window_visible(app, tmp_path):
     w = MainWindow(["ISO Nightshade"], lambda n: None, calls.append)
     w.render(build_view(AppState(), 0))
     w.show()
-    w.findChild(QCheckBox).click()
+    w.findChild(QCheckBox, "on_top").click()
     assert w.isVisible() and bool(w.windowFlags() & Qt.WindowStaysOnTopHint) and calls == [True]
-    w.findChild(QCheckBox).click()
+    w.findChild(QCheckBox, "on_top").click()
     assert w.isVisible() and not (w.windowFlags() & Qt.WindowStaysOnTopHint)
     w.close()
 
@@ -102,4 +102,47 @@ def test_window_has_the_background_image(app):
     # the image shows through the transparent content: not the old flat background colour everywhere
     colors = {img.pixelColor(x, 600).name() for x in range(20, 360, 20)}
     assert len(colors) > 3
+    w.close()
+
+
+def _compact_state():
+    from trackcod.sheets import new_sheet
+    s = AppState(weapon="M4")
+    s.sheets["M4"] = new_sheet("M4", "Fusil d'assaut")
+    return s
+
+
+def test_compact_mode_swaps_windows_and_hides_during_a_match(app):
+    from PySide6.QtWidgets import QPushButton
+    calls = []
+    w = MainWindow(["M4"], lambda n: None, lambda on: None, on_compact=calls.append)
+    s = _compact_state()
+    w.render(build_view(s, 1000))
+    w.show()
+    w.findChild(QPushButton, "compact").click()
+    assert calls == [True] and not w.isVisible() and w.compact_window.isVisible()
+    assert w.compact_window.windowFlags() & Qt.WindowStaysOnTopHint
+    s.compact, s.phase, s.phase_at = True, "in_match", 990       # a match starts: never over the game
+    w.render(build_view(s, 1000))
+    assert not w.compact_window.isVisible() and not w.isVisible()
+    s.phase = "post_match"                                         # scoreboard: back
+    w.render(build_view(s, 1000))
+    assert w.compact_window.isVisible()
+    w.compact_window.findChild(QPushButton, "expand").click()
+    assert calls == [True, False] and w.isVisible() and not w.compact_window.isVisible()
+    w.close()
+
+
+def test_always_on_top_is_dropped_during_a_match(app):
+    w = MainWindow(["M4"], lambda n: None, lambda on: None, always_on_top=True)
+    s = _compact_state()
+    w.render(build_view(s, 1000))
+    w.show()
+    assert w.windowFlags() & Qt.WindowStaysOnTopHint
+    s.phase, s.phase_at = "in_match", 990
+    w.render(build_view(s, 1000))
+    assert not (w.windowFlags() & Qt.WindowStaysOnTopHint) and w.isVisible()
+    s.phase = "post_match"
+    w.render(build_view(s, 1000))
+    assert w.windowFlags() & Qt.WindowStaysOnTopHint
     w.close()

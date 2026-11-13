@@ -248,3 +248,26 @@ def test_new_weapon_closes_the_previous_visit(env):
     _run(e, clock, 6)
     assert e.state.sheets["ISO NIGHTSHADE"].verified_at is not None
     assert e.state.weapon == "REZI 12" and e.state.sheets["REZI 12"].verified_at is not None
+
+
+def test_match_phase_has_a_time_and_apparence_means_menu(env):
+    make, frames, clock, _ = env
+    e = make()
+    frames.append(load("match_start_iso"))
+    e.step()
+    assert e.state.phase == "in_match" and e.state.phase_at == clock.t
+    clock.t += 5
+    frames.extend([load("apparence_full_asphalte")])
+    e.step()
+    assert e.state.phase == "menu" and e.state.phase_at == clock.t
+
+
+def test_scoreboard_time_stamps_post_match(env):
+    make, frames, clock, _ = env
+    e = make()
+    frames.append(load("match_start_iso"))
+    e.step()
+    clock.t += 600
+    frames.append(load("scoreboard_victoire"))
+    e.step()
+    assert e.state.phase == "post_match" and e.state.phase_at == clock.t

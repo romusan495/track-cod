@@ -220,6 +220,9 @@ class Engine:
                 changed = self._finish_apparence()  # another weapon chosen meanwhile: close the previous visit
             self.hover.feed(reading)
             self._last_apparence = now
+            if self.state.phase != "menu":  # Apparence is a menu screen: any match is over
+                self.state.phase, self.state.phase_at = "menu", now
+                changed = True
             if weapon and weapon != self.state.weapon:  # show the new weapon at once, not when leaving Apparence
                 self.state.weapon = weapon
                 self.sheet(weapon)
@@ -230,7 +233,7 @@ class Engine:
             _, self._current_map = read_match_info(lines)
             if weapon is None or (weapon == self.state.weapon and self.state.phase == "in_match"):
                 return False
-            self.state.weapon, self.state.phase = weapon, "in_match"
+            self.state.weapon, self.state.phase, self.state.phase_at = weapon, "in_match", now
             self.sheet(weapon)
             return True
         if kind == "scoreboard":
@@ -241,7 +244,7 @@ class Engine:
             self._scoreboard_seen_at = now
             if record_match(self.state, m):
                 append_match(m, self.matches_path)
-                self.state.phase = "post_match"
+                self.state.phase, self.state.phase_at = "post_match", now
                 self.on_stats_changed()
                 return True
             return False

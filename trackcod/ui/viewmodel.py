@@ -92,6 +92,8 @@ class View:
     player: str = ""  # 'Niv. 54 · Prestige 1'
     site: SiteView | None = None
     history: HistoryView | None = None
+    playing: bool = False   # a match is on: nothing may stay over the game
+    compact: bool = False
 
 
 def ago(at: float, now: float) -> str:
@@ -243,6 +245,13 @@ def _mastery(state: AppState, meta) -> tuple[list[tuple[str, str]], str]:
     return rows, f"d'après {n} arme{'s' if n > 1 else ''} apprise{'s' if n > 1 else ''}"
 
 
+MATCH_MAX_S = 45 * 60  # longer than any match: past this, the player left without a scoreboard
+
+
+def playing(state: AppState, now: float) -> bool:
+    return state.phase == "in_match" and state.phase_at is not None and now - state.phase_at < MATCH_MAX_S
+
+
 def build_view(state: AppState, now: float, meta=None, thumbs_dir=None, history=None) -> View:
     sheet = state.sheets.get(state.weapon) if state.weapon else None
     current = None
@@ -322,4 +331,6 @@ def build_view(state: AppState, now: float, meta=None, thumbs_dir=None, history=
                       [(x["code"], x.get("name", x["code"]), f"{SITE_URL}/l/{x['code']}") for x in state.site_leagues]),
         mastery=mastery_rows,
         mastery_note=mastery_note,
+        playing=playing(state, now),
+        compact=state.compact,
     )
