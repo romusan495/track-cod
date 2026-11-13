@@ -74,3 +74,13 @@ python -m venv .venv
 1. Monter `__version__` dans `trackcod/__init__.py`.
 2. Lancer `python -m tools.build`.
 3. Lancer `gh release create v<version> dist\TrackCOD-Setup-<version>.exe`.
+
+## Licence
+
+Track COD est un logiciel libre sous licence **GNU GPL version 3 ou ultérieure** (voir [LICENSE](LICENSE)) :
+tu peux le lire, le modifier et le redistribuer, à condition de publier tes modifications sous la même licence.
+
+Projet de fan, sans lien avec Activision. Call of Duty et les noms d'armes et de camouflages appartiennent à
+Activision Publishing, Inc.
+
+Signature du code : voir la [politique de signature](docs/politique-de-signature.md).

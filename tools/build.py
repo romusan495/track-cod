@@ -21,6 +21,17 @@ EXCLUDED = ["PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.Qt
             "numpy", "pytest"]
 
 
+def find_iscc(env) -> Path | None:
+    """Inno Setup compiler: $ISCC, the per-user install (winget), or Program Files (GitHub runners, choco)."""
+    candidates = [Path(env["ISCC"])] if env.get("ISCC") else []
+    if env.get("LOCALAPPDATA"):
+        candidates.append(Path(env["LOCALAPPDATA"]) / "Programs" / "Inno Setup 6" / "ISCC.exe")
+    for key in ("ProgramFiles(x86)", "ProgramFiles"):
+        if env.get(key):
+            candidates.append(Path(env[key]) / "Inno Setup 6" / "ISCC.exe")
+    return next((c for c in candidates if c.is_file()), None)
+
+
 def main() -> int:
     for folder in (DIST / "TrackCOD", ROOT / "build"):
         shutil.rmtree(folder, ignore_errors=True)
@@ -34,8 +45,8 @@ def main() -> int:
            str(ROOT / "trackcod_app.py")]
     if subprocess.run(cmd, cwd=ROOT).returncode != 0:
         return 1
-    iscc = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Inno Setup 6" / "ISCC.exe"
-    if not iscc.exists():
+    iscc = find_iscc(os.environ)
+    if iscc is None:
         print("Inno Setup introuvable : winget install JRSoftware.InnoSetup")
         return 1
     iss = ROOT / "installer" / "trackcod.iss"

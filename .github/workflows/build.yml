@@ -1,0 +1,44 @@
+# Builds the Windows installer on GitHub from the public code, so anyone (and SignPath, for code signing) can
+# check that the published TrackCOD-Setup-x.y.z.exe comes from this repository.
+name: Build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Tests
+        # 'windows' tests need the French OCR language of a gamer's PC; the readers are covered by the OCR fixtures
+        run: python -m pytest -q -m "not windows"
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        run: python -m tools.build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TrackCOD-Setup
+          path: dist/TrackCOD-Setup-*.exe
+          if-no-files-found: error
