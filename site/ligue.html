@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ligue · Track COD</title>
+<meta name="description" content="Classement privé d'une ligue Track COD (Call of Duty MW4).">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<meta name="theme-color" content="#0e1116">
+<link rel="preload" href="fonts/chakra-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <a class="brand" href="./"><span class="mark" aria-hidden="true"></span><span><b>TRACK COD</b><small>MW4 · stats des joueurs</small></span></a>
+    <a class="dl" data-download>⬇ Télécharger</a>
+  </header>
+  <a class="back" href="./">← Classement général</a>
+
+  <div class="layout">
+    <section class="panel board-panel">
+      <div class="panel-head"><h1 id="board-title">Ligue</h1><span class="live">en direct</span></div>
+      <nav class="tabs" id="tabs" aria-label="Trier le classement"></nav>
+      <div id="board" aria-live="polite"></div>
+    </section>
+
+    <section class="panel hero">
+      <p class="kicker">Rejoindre cette ligue</p>
+      <p class="hero-title league-code" data-league-code>······</p>
+      <p class="hero-sub">Dans le traqueur, section <strong>Site</strong> : coche « Publier mes stats », puis tape ce code dans <strong>« Rejoindre une ligue »</strong>.</p>
+      <a class="dl big" data-download>⬇ Télécharger Track COD</a>
+    </section>
+  </div>
+
+  <nav class="foot-links"><a href="./">Classement</a> · <a href="transparence.html">Transparence</a> · <a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></nav>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

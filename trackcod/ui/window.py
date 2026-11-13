@@ -155,7 +155,8 @@ class MainWindow(QMainWindow):
                  on_build_chosen: Callable[[str], None] = lambda style: None,
                  on_camo_answer: Callable[[str, bool], None] = lambda key, has: None,
                  on_prestige: Callable[[int], None] = lambda prestige: None,
-                 on_site_change: Callable[[bool, str, bool], None] = lambda published, pseudo, camos: None):
+                 on_site_change: Callable[[bool, str, bool], None] = lambda published, pseudo, camos: None,
+                 on_league: Callable[[str, str], None] = lambda action, value: None):
         super().__init__()
         self.setWindowTitle("Track COD")
         self.setWindowIcon(app_icon())
@@ -168,6 +169,7 @@ class MainWindow(QMainWindow):
         self._on_camo_answer = on_camo_answer
         self._on_prestige = on_prestige
         self._on_site_change = on_site_change
+        self._on_league = on_league
         self._site_draft = ""      # pseudo being typed: survives the re-renders
         self._site_hint = ""
         scroll = QScrollArea()
@@ -289,6 +291,37 @@ class MainWindow(QMainWindow):
             link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(site.url)))
             add(link)
         add(_label("Tes stats sont publiques sous ce pseudo. Décoche pour tout retirer du site.", "muted", wrap=True))
+        if site.url:
+            self._league_box(site, add)
+
+    def _league_box(self, site, add) -> None:
+        add(_label("LIGUES PRIVÉES", "section"))
+        for code, name, url in site.leagues:
+            row = QHBoxLayout()
+            row.addWidget(_label(f"{name} · {code}"), 1)
+            see = QPushButton("Voir")
+            see.clicked.connect(lambda _=False, u=url: QDesktopServices.openUrl(QUrl(u)))
+            leave = QPushButton("Quitter")
+            leave.clicked.connect(lambda _=False, c=code: self._on_league("leave", c))
+            row.addWidget(see)
+            row.addWidget(leave)
+            box = QWidget()
+            box.setLayout(row)
+            add(box)
+        for obj, placeholder, button, action in (("league_code", "Code (6 caractères)", "Rejoindre", "join"),
+                                                 ("league_name", "Nom de ta nouvelle ligue", "Créer", "create")):
+            row = QHBoxLayout()
+            field = QLineEdit()
+            field.setObjectName(obj)
+            field.setPlaceholderText(placeholder)
+            field.setMaxLength(6 if action == "join" else 30)
+            go = QPushButton(button)
+            go.clicked.connect(lambda _=False, f=field, a=action: f.text().strip() and self._on_league(a, f.text().strip()))
+            row.addWidget(field, 1)
+            row.addWidget(go)
+            box = QWidget()
+            box.setLayout(row)
+            add(box)
 
     def _ask_prestige(self) -> None:
         value, ok = QInputDialog.getInt(self, "Prestige", "Ton prestige actuel :", 0, 0, 99)

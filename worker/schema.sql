@@ -8,3 +8,17 @@ CREATE TABLE IF NOT EXISTS players (
   updated_at INTEGER NOT NULL,
   data TEXT NOT NULL DEFAULT '{}'
 );
+
+-- Private leagues: a short code shared between friends or a Discord server.
+CREATE TABLE IF NOT EXISTS leagues (
+  code TEXT PRIMARY KEY,             -- 6 characters, no O/0 or I/1
+  name TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS league_members (
+  code TEXT NOT NULL,
+  player_id TEXT NOT NULL,
+  joined_at INTEGER NOT NULL,
+  PRIMARY KEY (code, player_id)
+);

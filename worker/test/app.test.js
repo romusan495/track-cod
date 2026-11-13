@@ -24,3 +24,11 @@ test("labels of the sorted value", () => {
   assert.equal(sortLabel("kd"), "K/D");
   assert.equal(sortLabel("form"), "K/D 5 dern.");
 });
+
+test("league code from the address", async () => {
+  const { leagueCode } = await import("../../site/app.js");
+  assert.equal(leagueCode("/l/qg7k2p", ""), "QG7K2P");
+  assert.equal(leagueCode("/ligue", "?code=ABCDEF"), "ABCDEF");
+  assert.equal(leagueCode("/", ""), null);
+  assert.equal(leagueCode("/l/trop-long", ""), null);
+});

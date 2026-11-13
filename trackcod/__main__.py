@@ -241,7 +241,8 @@ def main() -> int:
 
     window = MainWindow(lambda: [w.name for w in registry.weapons()], on_weapon, on_top, state.always_on_top,
                         on_build_chosen=on_build, on_camo_answer=on_answer,
-                        on_prestige=on_prestige, on_site_change=on_site_change)
+                        on_prestige=on_prestige, on_site_change=on_site_change,
+                        on_league=lambda action, value: publisher.league_async(action, value))
     window.state_changed.connect(lambda: window.render(view()))
     if state.window_geometry:
         window.setGeometry(*state.window_geometry)

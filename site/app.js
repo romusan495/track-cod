@@ -72,20 +72,35 @@ export function setDownloadLinks() {
   for (const a of document.querySelectorAll("[data-download]")) a.href = DOWNLOAD_URL;
 }
 
+export function leagueCode(pathname, search) {
+  const m = /^\/l\/([A-Za-z0-9]{6})$/.exec(pathname);
+  const q = new URLSearchParams(search).get("code");
+  const code = m ? m[1] : q && /^[A-Za-z0-9]{6}$/.test(q) ? q : null;
+  return code ? code.toUpperCase() : null;
+}
+
 async function initLeaderboard() {
   setDownloadLinks();
   const tabs = document.querySelector("#tabs");
   const board = document.querySelector("#board");
   const params = new URLSearchParams(location.search);
   let sort = SORTS.some((s) => s.key === params.get("tri")) ? params.get("tri") : "kd";
+  const code = leagueCode(location.pathname, location.search);  // league page: /l/<code>
+  const api = code ? `/api/leagues/${code}` : "/api/leaderboard";
 
   async function load() {
     for (const b of tabs.children) b.setAttribute("aria-pressed", String(b.dataset.key === sort));
     board.replaceChildren(el("p", "empty", "Chargement…"));
     try {
-      const res = await fetch(`/api/leaderboard?sort=${sort}`);
+      const res = await fetch(`${api}?sort=${sort}`);
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "");
+      if (code && body.name) {
+        const title = document.querySelector("#board-title");
+        if (title) title.textContent = `Ligue ${body.name}`;
+        for (const c of document.querySelectorAll("[data-league-code]")) c.textContent = code;
+        document.title = `Ligue ${body.name} · Track COD`;
+      }
       renderLeaderboard(board, body.entries, sort);
     } catch (err) {
       const why = err && err.message ? `Classement indisponible : ${err.message}.` : "Classement indisponible pour le moment, réessaie plus tard.";

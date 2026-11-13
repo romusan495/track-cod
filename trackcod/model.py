@@ -91,5 +91,6 @@ class AppState:
     site_id: str | None = None
     site_key: str | None = None   # secret given by the site at registration; stays on this PC
     site_show_camos: bool = False
+    site_leagues: list[dict] = field(default_factory=list)  # [{"code": "QG7K2P", "name": "CoDQG France"}]
     reading_suspended: str | None = None  # remote switch off: message shown; None = screen reading allowed
     version: int = 3

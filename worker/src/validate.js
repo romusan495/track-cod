@@ -9,6 +9,15 @@ const fail = (error) => ({ ok: false, error });
 const isInt = (n, min, max = Number.MAX_SAFE_INTEGER) => Number.isInteger(n) && n >= min && n <= max;
 const text = (s, max = 60) => (typeof s === "string" ? s.trim().slice(0, max) : null);
 
+const LEAGUE = /^[\p{L}\p{N} _\-\[\]'.!]{3,30}$/u;
+
+export function validateLeagueName(n) {
+  if (typeof n !== "string") return fail("nom de ligue manquant");
+  const name = n.trim().normalize("NFC");
+  if (!LEAGUE.test(name)) return fail("nom de ligue invalide : 3 à 30 caractères, lettres, chiffres, espaces, - _ [ ] ' . !");
+  return { ok: true, name };
+}
+
 export function validatePseudo(p) {
   if (typeof p !== "string") return fail("pseudo manquant");
   const pseudo = p.trim().normalize("NFC");

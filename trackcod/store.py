@@ -56,6 +56,7 @@ def _from_dict(d: dict) -> AppState:
         site_id=d.get("site_id"),
         site_key=d.get("site_key"),
         site_show_camos=bool(d.get("site_show_camos", False)),
+        site_leagues=[x for x in d.get("site_leagues", []) if isinstance(x, dict) and x.get("code")],
         reading_suspended=d.get("reading_suspended"),
     )
 

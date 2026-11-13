@@ -222,3 +222,89 @@ def test_window_remove_button():
     next(b for b in w.findChildren(QPushButton) if b.text() == "Me retirer du site").click()
     assert changes == [(False, "Romusan", True)]
     w.close()
+
+
+# ----- private leagues -----
+
+LEAGUE = (201, json.dumps({"code": "QG7K2P", "name": "CoDQG France"}).encode())
+
+
+def _published(**over):
+    return _state(site_id="11111111-2222-3333-4444-555555555555", site_key="k" * 64, **over)
+
+
+def test_create_league_keeps_its_code():
+    st, http, notices = _published(), FakeHttp(LEAGUE), []
+    _publisher(st, http, notices).create_league_now("CoDQG France")
+    assert http.calls[0][0] == "POST" and http.calls[0][1].endswith("/api/leagues")
+    assert http.calls[0][3] == {"name": "CoDQG France", "player_id": "11111111-2222-3333-4444-555555555555"}
+    assert st.site_leagues == [{"code": "QG7K2P", "name": "CoDQG France"}]
+    assert any("QG7K2P" in n for n in notices)  # the code to share
+
+
+def test_join_league_by_code():
+    st = _published()
+    http = FakeHttp((204, b""), (200, json.dumps({"code": "QG7K2P", "name": "CoDQG France", "entries": []}).encode()))
+    _publisher(st, http, []).join_league_now(" qg7k2p ")
+    assert http.calls[0][1].endswith("/api/leagues/QG7K2P/members")
+    assert st.site_leagues == [{"code": "QG7K2P", "name": "CoDQG France"}]
+
+
+def test_league_errors_are_shown():
+    st, notices = _published(), []
+    _publisher(st, FakeHttp((404, b'{"error":"ligue introuvable"}')), notices).join_league_now("ZZZZZZ")
+    _publisher(st, FakeHttp((400, b'{"error":"5 ligues maximum par joueur"}')), notices).create_league_now("Une de trop")
+    assert notices == ["ligue : ligue introuvable", "ligue : 5 ligues maximum par joueur"]
+    assert st.site_leagues == []
+
+
+def test_leagues_need_published_stats():
+    st, http, notices = _state(), FakeHttp(), []
+    _publisher(st, http, notices).join_league_now("QG7K2P")
+    assert http.calls == [] and notices == ["publie d'abord tes stats sur le site pour rejoindre une ligue"]
+
+
+def test_leave_league():
+    st = _published(site_leagues=[{"code": "QG7K2P", "name": "CoDQG France"}])
+    http = FakeHttp((204, b""))
+    _publisher(st, http, []).leave_league_now("QG7K2P")
+    assert http.calls[0][0] == "DELETE"
+    assert http.calls[0][1].endswith("/api/leagues/QG7K2P/members/11111111-2222-3333-4444-555555555555")
+    assert st.site_leagues == []
+
+
+def test_leaving_the_site_leaves_the_leagues():
+    st = _published(site_publish=False, site_leagues=[{"code": "QG7K2P", "name": "CoDQG France"}])
+    _publisher(st, FakeHttp((204, b"")), []).unpublish_now()
+    assert st.site_leagues == []
+
+
+def test_leagues_saved(tmp_path):
+    st = _published(site_leagues=[{"code": "QG7K2P", "name": "CoDQG France"}])
+    save_state(st, tmp_path / "s.json")
+    assert load_state(tmp_path / "s.json").site_leagues == [{"code": "QG7K2P", "name": "CoDQG France"}]
+
+
+def test_site_view_lists_leagues():
+    from trackcod.ui.viewmodel import build_view
+    v = build_view(_published(site_leagues=[{"code": "QG7K2P", "name": "CoDQG France"}]), 0.0)
+    assert v.site.leagues == [("QG7K2P", "CoDQG France", v.site.url.split("/p/")[0] + "/l/QG7K2P")]
+
+
+def test_window_league_controls():
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton
+    from trackcod.ui.viewmodel import build_view
+    from trackcod.ui.window import MainWindow
+    app = QApplication.instance() or QApplication([])
+    calls = []
+    w = MainWindow([], lambda n: None, lambda b: None, on_league=lambda a, v: calls.append((a, v)))
+    w.render(build_view(_published(site_leagues=[{"code": "QG7K2P", "name": "CoDQG France"}]), 0.0))
+    w.findChild(QLineEdit, "league_code").setText("abcdef")
+    next(b for b in w.findChildren(QPushButton) if b.text() == "Rejoindre").click()
+    w.findChild(QLineEdit, "league_name").setText("Les potes")
+    next(b for b in w.findChildren(QPushButton) if b.text() == "Créer").click()
+    next(b for b in w.findChildren(QPushButton) if b.text() == "Quitter").click()
+    assert calls == [("join", "abcdef"), ("create", "Les potes"), ("leave", "QG7K2P")]
+    w.close()

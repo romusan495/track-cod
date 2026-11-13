@@ -18,6 +18,7 @@ MAX_MATCHES = 5
 UNREACHABLE = "site injoignable, nouvel essai plus tard"
 PSEUDO_TAKEN = "pseudo déjà pris, choisis-en un autre"
 REMOVED = "ton profil a été retiré du site ; recoche « Publier » pour le recréer"
+PUBLISH_FIRST = "publie d'abord tes stats sur le site pour rejoindre une ligue"
 
 
 class SiteError(Exception):
@@ -69,6 +70,18 @@ class SiteClient:
 
     def delete(self, player_id: str, key: str) -> None:
         self._call("DELETE", f"/api/players/{player_id}", key=key)
+
+    def create_league(self, player_id: str, key: str, name: str) -> dict:
+        return self._call("POST", "/api/leagues", {"name": name, "player_id": player_id}, key)
+
+    def join_league(self, player_id: str, key: str, code: str) -> None:
+        self._call("POST", f"/api/leagues/{code}/members", {"player_id": player_id}, key)
+
+    def league(self, code: str) -> dict:
+        return self._call("GET", f"/api/leagues/{code}")
+
+    def leave_league(self, player_id: str, key: str, code: str) -> None:
+        self._call("DELETE", f"/api/leagues/{code}/members/{player_id}", key=key)
 
 
 def _leading_int(text: str) -> int:
@@ -179,5 +192,53 @@ class Publisher:
                     self._fail(UNREACHABLE)
                     return
             st.site_id = st.site_key = None
+            st.site_leagues = []  # the site removes the memberships with the player
             self._failing = False
             self.saved()
+
+    # ----- private leagues -----
+    def _league_call(self, action) -> None:
+        st = self.state
+        if not (st.site_publish and st.site_id and st.site_key):
+            self.notice(PUBLISH_FIRST)
+            return
+        with self._lock:
+            try:
+                action(st)
+                self.saved()
+            except SiteError as e:
+                if e.status is None:
+                    self._fail(UNREACHABLE)
+                else:
+                    self.notice(f"ligue : {e}")
+            except Exception:
+                self._fail(UNREACHABLE)
+
+    def _remember(self, code: str, name: str) -> None:
+        leagues = [x for x in self.state.site_leagues if x.get("code") != code]
+        self.state.site_leagues = leagues + [{"code": code, "name": name}]
+
+    def create_league_now(self, name: str) -> None:
+        def act(st):
+            r = self.client.create_league(st.site_id, st.site_key, name.strip())
+            self._remember(r["code"], r["name"])
+            self.notice(f"ligue « {r['name']} » créée : partage le code {r['code']}")
+        self._league_call(act)
+
+    def join_league_now(self, code: str) -> None:
+        code = code.strip().upper()
+
+        def act(st):
+            self.client.join_league(st.site_id, st.site_key, code)
+            self._remember(code, self.client.league(code).get("name", code))
+        self._league_call(act)
+
+    def leave_league_now(self, code: str) -> None:
+        def act(st):
+            self.client.leave_league(st.site_id, st.site_key, code)
+            st.site_leagues = [x for x in st.site_leagues if x.get("code") != code]
+        self._league_call(act)
+
+    def league_async(self, action: str, value: str) -> None:
+        target = {"create": self.create_league_now, "join": self.join_league_now, "leave": self.leave_league_now}[action]
+        self._start(lambda: target(value))

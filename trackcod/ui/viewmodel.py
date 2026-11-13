@@ -67,6 +67,7 @@ class SiteView:
     pseudo: str
     show_camos: bool
     url: str | None  # the player's page, once registered
+    leagues: list[tuple[str, str, str]] = field(default_factory=list)  # (code, name, page url)
 
 
 @dataclass
@@ -317,7 +318,8 @@ def build_view(state: AppState, now: float, meta=None, thumbs_dir=None, history=
         meta=_meta_view(state, meta),
         history=_history(history),
         site=SiteView(state.site_publish, state.site_pseudo or "", state.site_show_camos,
-                      f"{SITE_URL}/p/{state.site_id}" if state.site_id else None),
+                      f"{SITE_URL}/p/{state.site_id}" if state.site_id else None,
+                      [(x["code"], x.get("name", x["code"]), f"{SITE_URL}/l/{x['code']}") for x in state.site_leagues]),
         mastery=mastery_rows,
         mastery_note=mastery_note,
     )
