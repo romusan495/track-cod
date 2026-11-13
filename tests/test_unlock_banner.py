@@ -98,3 +98,14 @@ def test_special_unlock_marks_known_camo(engine):
     _run(e, clock, 2)
     pin = next(c for c in e.state.sheets["REZI 12"].camos if c.name_fr == "Pin blanc")
     assert pin.state == "done"
+
+
+def test_corner_banner_takes_the_weapon_just_above_the_camo(registry):
+    """Real session 13/11: 'LATENCE : 12 MS' in the HUD looked like REZI 12; the weapon is the line above the camo."""
+    import json
+    from pathlib import Path
+    from trackcod.readers.common import OcrLine
+    fix = Path(__file__).parent / "fixtures" / "ocr" / "banniere_coin_vel46.json"
+    lines = [OcrLine(**d) for d in json.loads(fix.read_text(encoding="utf-8"))]
+    b = read_banner(lines, registry, KnownCamos.load())
+    assert b is not None and (b.weapon, b.section, b.number, b.corner) == ("VEL 46", "military", 2, True)

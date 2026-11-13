@@ -121,11 +121,13 @@ def _row(r: RowView) -> QWidget:
     icon.setStyleSheet(f"color: {color};")
     name = _label(r.name, wrap=True)
     name.setStyleSheet("font-weight: 600;")
-    name.setFixedWidth(110)
-    detail = _label(r.detail, "muted", wrap=True)
     lay.addWidget(icon)
-    lay.addWidget(name)
-    lay.addWidget(detail, 1)
+    if r.detail:
+        name.setFixedWidth(110)
+        lay.addWidget(name)
+        lay.addWidget(_label(r.detail, "muted", wrap=True), 1)
+    else:  # a sentence alone (daily challenge): all the width
+        lay.addWidget(name, 1)
     if r.counter:
         lay.addWidget(_label(r.counter))
     return w
@@ -186,7 +188,8 @@ class CompactWindow(QWidget):
         self._name.setStyleSheet("font-size: 15px; font-weight: 700;")
         self._challenge = _label("", wrap=True)
         self._counter = _label("", "muted")
-        for w in (self._name, self._challenge, self._counter):
+        self._daily = _label("", "muted")
+        for w in (self._name, self._challenge, self._counter, self._daily):
             lay.addWidget(w)
         self.setToolTip("Glisse pour déplacer · se cache tout seul pendant les parties")
 
@@ -201,6 +204,8 @@ class CompactWindow(QWidget):
             self._name.setText("Aucun camo à faire" if not view.sheet_note else "Arme pas encore apprise")
             self._challenge.setText(view.sheet_note or "rien à viser pour l'instant sur cette arme")
             self._counter.setText("")
+        self._daily.setText(view.daily_summary)
+        self._daily.setVisible(bool(view.daily_summary))
         self.adjustSize()
 
     def mousePressEvent(self, event):
@@ -548,6 +553,12 @@ class MainWindow(QMainWindow):
             add(_label("ÉRUDIT", "section"))
             for r in view.erudit:
                 add(_row(r))
+        if view.daily:
+            add(_label("DÉFIS DU JOUR", "section"))
+            for r in view.daily:
+                add(_row(r))
+            if view.daily_note:
+                add(_label(view.daily_note, "muted", wrap=True))
 
         add(_label("DERNIÈRE PARTIE", "section"))
         if view.last_match:

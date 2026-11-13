@@ -30,7 +30,7 @@ def test_weapon_page_content():
 
 
 def test_category_without_known_erudit():
-    html = weapon_page(Weapon("Sang 9mm", "Pistolet", REZI.specials))
+    html = weapon_page(Weapon("FSS Carbon Edge 1095", "Corps à corps", REZI.specials))
     assert "à venir" in html
 
 

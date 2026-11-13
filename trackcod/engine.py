@@ -1,6 +1,7 @@
 """Worker loop: reads the game screen, updates and saves AppState."""
 
 import logging
+import re
 
 from rapidfuzz import fuzz
 import threading
@@ -8,17 +9,19 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from trackcod.daily import apply_toast, merge_board
 from trackcod.model import AppState, MatchStats, WeaponSheet
 from trackcod.readers.apparence import HoverTracker, read_apparence
 from trackcod.readers.classify import classify
 from trackcod.readers.combat_record import read_combat_record
-from trackcod.readers.common import OcrLine
+from trackcod.readers.common import OcrLine, norm
 from trackcod.readers.match_start import read_breadcrumb, read_match_info, read_match_start, read_weapon_title
 from trackcod.readers.scoreboard import read_scoreboard
 from trackcod.known_camos import KnownCamos
 from trackcod.readers.unlock_banner import has_unlocked_word, read_banner
 from trackcod.thumbs import save_thumbs
 from trackcod.readers.class_screen import read_class_weapon
+from trackcod.readers.daily import read_daily, read_daily_toast
 from trackcod.readers.item_unlock import read_item_unlock
 from trackcod.readers.player import read_player_level
 from trackcod.sheets import _erudit_needs_specials, answer_camo, apply_tile_locks, count_item_unlock, display_name
@@ -33,7 +36,20 @@ STEP_INTERVAL_S = 1.0
 APPARENCE_INTERVAL_S = 0.1
 APPARENCE_VISIT_END_S = 3.0
 SAME_MATCH_WINDOW_S = 300.0
-BANNER_CONFIRM_S = 8.0   # 'DÉBLOQUÉ' must follow the banner within this delay
+def same_card(a: str, b: str) -> bool:
+    """Two reads of a card still on screen, with different OCR junk ('MUNITIONS PERFORANTES X 30 MM PART SRY' /
+    'ADMINISTRATIF MUNITIONS PERFORANTES X INJ'): the real words are shared, and no number differs
+    ('CHARGEUR 30 CARTOUCHES' and 'CHARGEUR 45 CARTOUCHES' are two items)."""
+    words = lambda s: {w for w in re.findall(r"[A-Z]{4,}", norm(s))}
+    nums = lambda s: set(re.findall(r"\d+", s))
+    wa, wb = words(a), words(b)
+    if nums(a) and nums(b) and nums(a) != nums(b):
+        return False
+    shared = wa & wb
+    return len(shared) >= 2 and len(shared) >= 0.5 * min(len(wa), len(wb))
+
+
+BANNER_CONFIRM_S =8.0   # 'DÉBLOQUÉ' must follow the banner within this delay
 ITEM_GAP_S = 2.5          # an unreadable item card seen again after this gap is a new unlock
 ITEM_REPEAT_S = 30.0      # the same item name seen again within this delay is the same unlock
 UNLOCK_REPEAT_S = 60.0   # the same unlock seen again within this delay is ignored
@@ -137,7 +153,9 @@ class Engine:
         self._item_card_at = now
         self._items_seen = [(t, at) for t, at in self._items_seen if now - at <= ITEM_REPEAT_S]
         if unlock.item:
-            same = next((i for i, (t, _) in enumerate(self._items_seen) if fuzz.ratio(t, unlock.item) >= 75), None)
+            same = next((i for i, (t, _) in enumerate(self._items_seen)
+                         if fuzz.ratio(t, unlock.item) >= 75
+                         or (gap <= ITEM_GAP_S and same_card(t, unlock.item))), None)
             if same is not None:
                 self._items_seen[same] = (self._items_seen[same][0], now)
                 return False
@@ -266,8 +284,14 @@ class Engine:
             calibrate(self.state, g, now)
             self.on_stats_changed()
             return True
+        if kind == "daily":
+            return merge_board(self.state, read_daily(lines), now)
+        if apply_toast(self.state, read_daily_toast(lines)):
+            return True
         banner = read_banner(lines, self.registry, self.known)
         if banner is not None:
+            if banner.corner and banner.weapon == self.state.weapon:  # the game's corner unlock notification
+                return self._apply_unlock(banner, now)
             self._banner = (banner, now)
         changed = self._count_item(lines, now, camo_pending=self._banner is not None
                                    and now - self._banner[1] <= BANNER_CONFIRM_S)

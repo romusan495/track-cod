@@ -74,6 +74,15 @@ class GlobalStats:
 
 
 @dataclass
+class DailyChallenge:
+    """One 'DÉFI DU JOUR' as read in the menus (text as shown in game, total from the text)."""
+    text: str
+    total: int | None
+    progress: int | None = None
+    done: bool = False
+
+
+@dataclass
 class AppState:
     weapon: str | None = None
     sheets: dict[str, WeaponSheet] = field(default_factory=dict)
@@ -97,5 +106,9 @@ class AppState:
     site_leagues: list[dict] = field(default_factory=list)  # [{"code": "QG7K2P", "name": "CoDQG France"}]
     compact: bool = False         # small always-on-top window instead of the full one (hidden during a match)
     compact_geometry: tuple[int, int, int, int] | None = None
+    daily: list[DailyChallenge] = field(default_factory=list)  # 'DÉFIS DU JOUR'
+    daily_bonus: tuple[int, int] | None = None                 # 'Terminez 3 défi(s) du jour' n/3
+    daily_at: float | None = None                              # last read of the list
+    daily_resets_at: float | None = None                       # from the 'xxH yyM' timer, when read
     reading_suspended: str | None = None  # remote switch off: message shown; None = screen reading allowed
     version: int = 3

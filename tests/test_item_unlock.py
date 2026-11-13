@@ -190,3 +190,39 @@ def test_locked_special_never_hovered_says_how_to_get_the_count():
     v = build_view(AppState(weapon="REZI 12", sheets={"REZI 12": s}), 2.0)
     row = next(r for r in v.specials if r.name == "Or noir")
     assert "survole" in row.detail and "Apparence" in row.detail
+
+
+def test_same_card_read_with_different_junk_counts_once(tmp_path, registry):
+    """Real session 13/11: one 'NOUVEL ÉLÉMENT DÉBLOQUÉ' card read twice, one second apart, with other OCR junk."""
+    a = _lines(("NOUVEL ÉLÉMENT DÉBLOQ", 0.39, 0.27), ("MUNITIONS PERFORANTES X 30 MM PART SRY LAUSER81", 0.6, 0.32))
+    b = _lines(("NOUVEL ÉLÉMENT DÉBLOQ", 0.39, 0.27), ("ADMINISTRATIF MUNITIONS PERFORANTES X INJ", 0.6, 0.32))
+    frames = [a, b, OTHER, OTHER]
+    e, clock = _engine(tmp_path, registry, frames)
+    _run(e, clock, 4)
+    assert _special(e.state.sheets["REZI 12"], "Or noir").items_left == 1
+
+
+def test_corner_camo_notification_of_the_held_weapon_unlocks_without_the_word(tmp_path, registry):
+    """Real session 13/11: top-right 'VEL 46' + 'CAMOUFLAGE MILITAIRE 2', on one frame, no 'DÉBLOQUÉ' word."""
+    toast = [OcrLine("REZI 12", 0.833, 0.252, 0.03, 0.015), OcrLine("CAMOUFLAGE MILITAIRE 2", 0.834, 0.272, 0.08, 0.026)]
+    frames = [toast, OTHER, OTHER]
+    e, clock = _engine(tmp_path, registry, frames)
+    _run(e, clock, 3)
+    mil = {c.key: c.state for c in e.state.sheets["REZI 12"].camos if c.section == "military"}
+    assert mil["military:1"] == "done" and mil["military:2"] == "done" and mil["military:3"] == "available"
+
+
+def test_enemy_kill_card_with_a_camo_never_unlocks(tmp_path, registry):
+    """The card of the enemy who killed you (centre of the screen) lists their weapon: never ours to unlock."""
+    card = [OcrLine("REZI 12", 0.48, 0.652, 0.04, 0.017), OcrLine("CAMOUFLAGE MILITAIRE 2", 0.49, 0.669, 0.1, 0.021)]
+    frames = [card, OTHER, OTHER]
+    e, clock = _engine(tmp_path, registry, frames)
+    _run(e, clock, 3)
+    assert all(c.state != "done" for c in e.state.sheets["REZI 12"].camos if c.section == "military")
+
+
+def test_same_card_rule():
+    from trackcod.engine import same_card
+    assert same_card("MUNITIONS PERFORANTES X 30 MM PART SRY LAUSER81", "ADMINISTRATIF MUNITIONS PERFORANTES X INJ")
+    assert not same_card("CHARGEUR 30 CARTOUCHES", "CHARGEUR 45 CARTOUCHES")
+    assert not same_card("SILENCIEUX MONOLITHIQUE", "CROSSE DEMO HVR2")

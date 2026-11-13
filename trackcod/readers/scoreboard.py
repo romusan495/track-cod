@@ -13,6 +13,7 @@ _NUMBER = re.compile(r"^\d{1,6}$")
 _COLUMN_TOLERANCE = 0.015
 _ROW_TOLERANCE = 0.012
 _NAME_MATCH = 85
+_ELIM_SHARE = (0.365 - 0.322) / (0.453 - 0.322)  # ÉLIM. between SCORE and MORTS (headers read on 13/11)
 
 
 def _result_line(lines: list[OcrLine]) -> tuple[OcrLine, str] | None:
@@ -75,10 +76,15 @@ def read_scoreboard(lines: list[OcrLine], at: float, weapon: str | None) -> Matc
     if not rows:
         return None
     row = rows[0]
-    score = _value(lines, _header(lines, "SCORE", row), row)
-    kills = _value(lines, _header(lines, "ELIM.", row), row)
-    deaths = _value(lines, _header(lines, "MORTS", row), row)
-    if kills is None or deaths is None or score is None:
+    score_h, morts_h = _header(lines, "SCORE", row), _header(lines, "MORTS", row)
+    elim_h = _header(lines, "ELIM.", row)
+    if elim_h is None and score_h is not None and morts_h is not None:
+        # header not read: the columns never move, ÉLIM. sits at a fixed share of the SCORE -> MORTS gap
+        elim_h = OcrLine("ELIM.", score_h.x + (morts_h.x - score_h.x) * _ELIM_SHARE, score_h.y, 0.0, score_h.h)
+    score = _value(lines, score_h, row)  # optional: an unreadable score never drops the match
+    kills = _value(lines, elim_h, row)
+    deaths = _value(lines, morts_h, row)
+    if kills is None or deaths is None:
         return None
     mode = _mode(lines, result_line)
     return MatchStats(

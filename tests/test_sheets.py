@@ -356,3 +356,9 @@ def test_counter_that_does_not_move_after_matches_is_stalled():
     count_match(s)
     apply_apparence(s, _read("ASPHALTE", progress=(12, 50), at=3.0))   # it moved: all good again
     assert c.matches_stalled == 0 and c.matches_unread == 0
+
+
+def test_erudit_challenges_for_pistols_and_launchers():
+    from trackcod.sheets import ERUDIT_CHALLENGES
+    assert ERUDIT_CHALLENGES["Pistolet"][1] == "Tuer 20 joueurs par derrière"
+    assert ERUDIT_CHALLENGES["Lanceur"][2] == "Éliminer 7 fois 10 joueurs dans une même partie"

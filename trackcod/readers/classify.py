@@ -7,7 +7,7 @@ from rapidfuzz import fuzz
 
 from trackcod.readers.common import OcrLine, norm
 
-ScreenKind = Literal["apparence", "match_start", "scoreboard", "combat_record", "class", "other"]
+ScreenKind = Literal["apparence", "match_start", "scoreboard", "combat_record", "class", "daily", "other"]
 
 SECTION_HEADERS = {"SPECIAL": "special", "ERUDIT": "erudit", "PRESTIGE": "prestige", "MILITAIRE": "military"}
 _HEADER_THRESHOLD = 75
@@ -45,4 +45,8 @@ def classify(lines: list[OcrLine]) -> ScreenKind:
 
     if is_class_screen(lines):
         return "class"
+    from trackcod.readers.daily import is_daily
+
+    if is_daily(lines):
+        return "daily"
     return "other"

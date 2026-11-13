@@ -24,6 +24,7 @@ class BannerRead:
     section: str              # military / special / erudit
     number: int | None = None
     name: str | None = None
+    corner: bool = False      # top-right notification: the game's own unlock message, no 'DEBLOQUE' word
 
     @property
     def label(self) -> str:
@@ -43,19 +44,35 @@ def has_unlocked_word(lines: list[OcrLine]) -> bool:
     return False
 
 
+def _in_corner(line: OcrLine) -> bool:
+    return line.x > 0.7 and line.y < 0.4
+
+
+def _weapon_above(line: OcrLine, lines: list[OcrLine], registry: WeaponRegistry) -> str | None:
+    """The banner's weapon is the line right above its camo line ('VEL 46' over 'CAMOUFLAGE MILITAIRE 2')."""
+    above = [l for l in lines if 0 < line.y - l.y < 0.06 and abs(l.x - line.x) < 0.05]
+    return next((w for w in (registry.match(l.text) for l in sorted(above, key=lambda l: line.y - l.y)) if w), None)
+
+
 def read_banner(lines: list[OcrLine], registry: WeaponRegistry, known: KnownCamos) -> BannerRead | None:
-    weapon = next((w for w in (registry.match(l.text) for l in lines if len(_plain(l.text)) >= 4) if w), None)
-    if weapon is None:
-        return None
+    # anywhere on screen, HUD text can look like a weapon ('LATENCE : 12 MS' ~ REZI 12): prefer the line above
+    anywhere = next((w for w in (registry.match(l.text) for l in lines if len(_plain(l.text)) >= 4) if w), None)
     for line in lines:
         m = _MILITARY.search(_plain(line.text))
         if m:
-            return BannerRead(weapon, "military", number=int(m.group(1)))
+            weapon = _weapon_above(line, lines, registry) or anywhere
+            if weapon is None:
+                return None
+            return BannerRead(weapon, "military", number=int(m.group(1)), corner=_in_corner(line))
+    weapon = anywhere
+    if weapon is None:
+        return None
     texts = [_plain(l.text) for l in lines]
     for special in known.specials(weapon):
         target = _plain(special.name_fr)
-        if any(fuzz.ratio(t, target) >= _NAME_MATCH for t in texts):
-            return BannerRead(weapon, "special", name=special.name_fr)
+        hit = next((l for l, t in zip(lines, texts) if fuzz.ratio(t, target) >= _NAME_MATCH), None)
+        if hit is not None:
+            return BannerRead(weapon, "special", name=special.name_fr, corner=_in_corner(hit))
     for key, label, _ in ERUDIT:
         if any((t == key) if len(key) <= 2 else fuzz.ratio(t, key) >= _NAME_MATCH for t in texts):
             return BannerRead(weapon, "erudit", name=label)

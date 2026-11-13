@@ -1,5 +1,6 @@
 """AppState -> texts and icons shown in the window (pure, tested)."""
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -96,7 +97,31 @@ class View:
     site: SiteView | None = None
     history: HistoryView | None = None
     playing: bool = False   # a match is on: nothing may stay over the game
+    daily: list[RowView] = field(default_factory=list)   # 'DÉFIS DU JOUR'
+    daily_note: str = ""
+    daily_summary: str = ""   # one line for the compact window
     compact: bool = False
+
+
+def _daily(state: AppState, now: float) -> dict:
+    if not state.daily:
+        return {}
+    rows = []
+    for c in state.daily:
+        text = re.sub(r"[\[(]s[)\]]", "(s)", c.text)  # OCR reads '(s)' as '[s)'
+        counter = (f"{c.progress}/{c.total}" if c.progress is not None and c.total else
+                   f"?/{c.total}" if c.total else "—")
+        rows.append(RowView("✔" if c.done else "○", text, "", counter))
+    parts = [f"lu {ago(state.daily_at, now)}"] if state.daily_at else []
+    if state.daily_bonus:
+        parts.append(f"Bonus {state.daily_bonus[0]}/{state.daily_bonus[1]}")
+    if state.daily_resets_at is not None:
+        left = state.daily_resets_at - now
+        parts.append(f"renouvelés dans {int(left // 3600)} h {int(left % 3600 // 60):02d}" if left > 0
+                     else "expirés : ouvre les défis du jour dans le menu")
+    done = sum(1 for c in state.daily if c.done)
+    return {"daily": rows, "daily_note": " · ".join(parts),
+            "daily_summary": f"Défis du jour : {done}/{len(state.daily)}"}
 
 
 def ago(at: float, now: float) -> str:
@@ -342,4 +367,5 @@ def build_view(state: AppState, now: float, meta=None, thumbs_dir=None, history=
         mastery_note=mastery_note,
         playing=playing(state, now),
         compact=state.compact,
+        **_daily(state, now),
     )

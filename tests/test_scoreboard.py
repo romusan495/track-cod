@@ -31,9 +31,23 @@ def test_same_screen_same_fingerprint():
 
 
 def test_player_row_unreadable_gives_none():
-    lines = [l for l in load("scoreboard_victoire") if "1595" not in l.text]
+    # the score alone may be unreadable (see below); without the kills value there is no match to record
+    m = read_scoreboard(load("scoreboard_victoire"), at=1.0, weapon=None)
+    lines = [l for l in load("scoreboard_victoire") if not (l.text.strip() == str(m.kills) and abs(l.y - 0.742) < 0.1)]
     assert read_scoreboard(lines, at=1.0, weapon=None) is None
 
 
 def test_midmatch_gives_none():
     assert read_scoreboard(load("scoreboard_midmatch"), at=1.0, weapon=None) is None
+
+
+def test_unreadable_score_still_records_the_match():
+    """Real session 13/11: the score cell was read '8��'; kills and deaths are still there."""
+    m = read_scoreboard(load("scoreboard_defaite_score_illisible"), at=1000.0, weapon="VEL 46")
+    assert m is not None and (m.kills, m.deaths, m.score, m.result) == (6, 8, None, "loss")
+
+
+def test_missing_elim_header_is_placed_between_score_and_morts():
+    """Real session 13/11: the 'ÉLIM.' header was not read; the columns never move."""
+    m = read_scoreboard(load("scoreboard_victoire_sans_entete_elim"), at=1000.0, weapon="VEL 46")
+    assert m is not None and (m.kills, m.deaths, m.score, m.result) == (19, 19, 2410, "win")

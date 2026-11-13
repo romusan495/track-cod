@@ -35,6 +35,8 @@ ERUDIT_CHALLENGES = {
     "Mitrailleuse": (_GOLD, "Tuer 15 fois 3 joueurs sans mourir",
                      "Tuer 25 fois 2 joueurs sans relâcher la gâchette"),
     "Fusil de précision": (_GOLD, "Tuer 75 joueurs en position allongée", "Tuer 75 joueurs en un tir"),
+    "Pistolet": (_GOLD, "Tuer 20 joueurs par derrière", "Tuer 40 joueurs au tir au jugé"),
+    "Lanceur": (_GOLD, "Tuer 15 fois 2 joueurs sans subir de dégâts", "Éliminer 7 fois 10 joueurs dans une même partie"),
 }
 
 

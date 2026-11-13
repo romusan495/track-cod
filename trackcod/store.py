@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from trackcod.meta import CATEGORY_FR
-from trackcod.model import AppState, Camo, GlobalStats, MatchStats, WeaponSheet
+from trackcod.model import AppState, Camo, DailyChallenge, GlobalStats, MatchStats, WeaponSheet
 
 MAX_FINGERPRINTS = 200
 
@@ -47,6 +47,10 @@ def _from_dict(d: dict) -> AppState:
         phase_at=d.get("phase_at"),
         compact=bool(d.get("compact", False)),
         compact_geometry=tuple(d["compact_geometry"]) if d.get("compact_geometry") else None,
+        daily=[DailyChallenge(**c) for c in d.get("daily", []) if isinstance(c, dict) and c.get("text")],
+        daily_bonus=tuple(d["daily_bonus"]) if d.get("daily_bonus") else None,
+        daily_at=d.get("daily_at"),
+        daily_resets_at=d.get("daily_resets_at"),
         notices=list(d.get("notices", [])),
         window_geometry=tuple(geometry) if geometry else None,
         always_on_top=d.get("always_on_top", False),
