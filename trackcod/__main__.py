@@ -266,6 +266,16 @@ def main() -> int:
 
     threading.Thread(target=meta_loop, daemon=True).start()
 
+    def switch_loop() -> None:  # remote switch on the site: suspend screen reading on every tracker if needed
+        from trackcod.killswitch import CHECK_EVERY_S, fetch_status
+        while not stop.is_set():
+            if engine is not None:
+                engine.apply_status(fetch_status())
+                window.state_changed.emit()
+            stop.wait(CHECK_EVERY_S)
+
+    threading.Thread(target=switch_loop, daemon=True).start()
+
     from trackcod import __version__
     from trackcod.updater import check_latest, is_frozen
 

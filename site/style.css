@@ -187,3 +187,22 @@ strong { color: var(--txt); }
   .tab { padding: 6px 8px; font-size: 12px; letter-spacing: 0; white-space: nowrap; }
   .panel { padding: 12px 12px 14px; }
 }
+
+/* ---------- self-hosted font (SIL OFL, see fonts/OFL.txt) ---------- */
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-display: swap; src: url("fonts/chakra-500.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 600; font-display: swap; src: url("fonts/chakra-600.woff2") format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: swap; src: url("fonts/chakra-700.woff2") format("woff2"); }
+
+/* ---------- text pages (transparence, mentions, confidentialité) ---------- */
+.doc { max-width: 780px; margin: 0 auto; }
+.doc h2 { font: 600 15px var(--hud); letter-spacing: 1px; text-transform: uppercase; color: var(--accent); margin: 18px 0 6px; }
+.doc p, .doc li { color: #c3cbd4; }
+.doc code { background: var(--glass-2); padding: 1px 5px; font-size: 13px; }
+.link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+ul.check, ul.never { list-style: none; padding-left: 0; margin: 6px 0; }
+ul.check li, ul.never li { position: relative; padding-left: 26px; margin: 6px 0; }
+ul.check li::before { content: "✔"; position: absolute; left: 4px; color: var(--win); }
+ul.never li::before { content: "✖"; position: absolute; left: 4px; color: var(--loss); }
+.foot-links { text-align: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.foot-links a { color: var(--muted); }
+.foot-links a:hover { color: var(--accent); }

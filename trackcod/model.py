@@ -91,4 +91,5 @@ class AppState:
     site_id: str | None = None
     site_key: str | None = None   # secret given by the site at registration; stays on this PC
     site_show_camos: bool = False
+    reading_suspended: str | None = None  # remote switch off: message shown; None = screen reading allowed
     version: int = 3

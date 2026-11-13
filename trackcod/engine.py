@@ -38,6 +38,7 @@ ITEM_GAP_S = 2.5          # an unreadable item card seen again after this gap is
 ITEM_REPEAT_S = 30.0      # the same item name seen again within this delay is the same unlock
 UNLOCK_REPEAT_S = 60.0   # the same unlock seen again within this delay is ignored
 MAX_NOTICES = 5
+SUSPENDED = "Lecture de l'écran suspendue par Track COD"
 
 
 class Engine:
@@ -281,8 +282,23 @@ class Engine:
             return len(self.registry.learned) != before
         return False
 
+    def apply_status(self, status) -> None:
+        """Remote switch (trackcod.killswitch): None = unknown, keep the last known state."""
+        if status is None:
+            return
+        with self.lock:
+            self.state.notices = [n for n in self.state.notices if not n.startswith(SUSPENDED)]
+            if status.active:
+                self.state.reading_suspended = None
+            else:
+                self.state.reading_suspended = status.message or ""
+                self._notice(SUSPENDED + (f" : {status.message}" if status.message else ""))
+            self._save()
+
     def step(self) -> bool:
         with self.lock:
+            if self.state.reading_suspended is not None:
+                return False  # suspended from the site: the screen is not read at all
             now = self.clock()
             changed = False
             lines = self.frame_source()

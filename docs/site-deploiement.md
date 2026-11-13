@@ -66,3 +66,21 @@ Le traqueur de ce joueur arrête alors de publier et lui affiche « ton profil a
 
 - Un profil sans mise à jour depuis 90 jours est supprimé chaque nuit (tâche planifiée à 4 h UTC).
 - Les valeurs absurdes sont refusées par le serveur.
+
+## Interrupteur à distance (suspendre la lecture de l'écran)
+
+Si Activision objecte, ou en cas de doute, tu peux arrêter la lecture d'écran sur **tous les traqueurs** (version 2.0.2 et suivantes) sans publier de nouvelle version.
+
+1. Dans `site/etat.json`, mets `"lecture_active": false` et un message pour les joueurs :
+
+   ```json
+   { "lecture_active": false, "message": "Pause demandée, en attente d'une réponse d'Activision." }
+   ```
+
+2. Publie le site :
+
+   ```bash
+   npx wrangler deploy
+   ```
+
+Les traqueurs vérifient au démarrage puis toutes les 30 minutes. Hors ligne, ils gardent le dernier état connu. Pour relancer la lecture, remets `true` et republie.

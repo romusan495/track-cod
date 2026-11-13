@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transparence · ce que fait Track COD, et ce qu'il ne fait jamais</title>
+<meta name="description" content="Ce que le traqueur Track COD fait sur ton PC, et ce qu'il ne fait jamais : pas de lecture de la mémoire du jeu, pas d'injection, pas d'info sur les adversaires. Lecture d'écran uniquement.">
+<link rel="canonical" href="https://track-cod.romusangames.workers.dev/transparence.html">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<meta name="theme-color" content="#0e1116">
+<link rel="preload" href="fonts/chakra-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <a class="brand" href="./"><span class="mark" aria-hidden="true"></span><span><b>TRACK COD</b><small>MW4 · stats des joueurs</small></span></a>
+    <a class="dl" data-download>⬇ Télécharger</a>
+  </header>
+  <a class="back" href="./">← Classement</a>
+
+  <div class="layout doc">
+    <section class="panel">
+      <div class="panel-head"><h1>Ce que fait Track COD, et ce qu'il ne fait jamais</h1></div>
+      <p>Track COD est un traqueur gratuit et <a class="link" href="https://github.com/romusan495/track-cod">open source</a> : chacun peut lire son code et vérifier ce qui suit.</p>
+
+      <h2>Ce qu'il fait</h2>
+      <ul class="check">
+        <li>Il <strong>prend une image de la fenêtre du jeu</strong>, comme un logiciel d'enregistrement ou de capture d'écran, environ une fois par seconde.</li>
+        <li>Il <strong>lit le texte de cette image avec l'OCR de Windows</strong>, sur ton PC. Aucune image n'est envoyée sur internet.</li>
+        <li>Il ne regarde que <strong>tes propres écrans</strong> : Apparence (camos), début de partie (ton arme), tableau des scores et rapport de combat (tes stats), messages de déblocage.</li>
+        <li>Il garde tes fiches et tes stats <strong>sur ton PC</strong> (<code>%LOCALAPPDATA%\TrackCOD</code>).</li>
+        <li>Il n'envoie tes stats sur ce site <strong>que si tu coches « Publier mes stats »</strong> : global, 5 dernières parties, niveau, et ta maîtrise des camos si tu le choisis.</li>
+        <li>Il se connecte à internet pour : vérifier les mises à jour (GitHub), lire la classe méta de ton arme, lire l'interrupteur ci-dessous, et publier tes stats si tu l'as demandé.</li>
+      </ul>
+
+      <h2>Ce qu'il ne fait jamais</h2>
+      <ul class="never">
+        <li>Lire ou modifier la <strong>mémoire du jeu</strong>, ou ses fichiers.</li>
+        <li>Injecter du code dans le jeu ou <strong>dessiner par-dessus</strong> : c'est une fenêtre séparée.</li>
+        <li>Envoyer des touches ou des clics de souris au jeu, ou <strong>jouer à ta place</strong>.</li>
+        <li>Afficher ou calculer quoi que ce soit sur <strong>les adversaires, les lobbies ou le matchmaking</strong>.</li>
+        <li>Utiliser l'API privée de callofduty.com ou tes identifiants Activision.</li>
+        <li>Envoyer les <strong>pseudos des autres joueurs</strong> visibles à l'écran.</li>
+        <li>Publier des <strong>images du jeu</strong> (vignettes de camos, captures) : elles appartiennent à Activision et restent sur ton PC.</li>
+      </ul>
+
+      <h2>Interrupteur à distance</h2>
+      <p>Si Activision demandait une vérification, ou en cas de doute, le créateur peut <strong>suspendre la lecture de l'écran sur tous les traqueurs</strong> depuis ce site, sans mise à jour. Le traqueur l'indique alors dans sa fenêtre et ne lit plus rien jusqu'à la levée de la suspension.</p>
+
+      <p class="note">Track COD est un projet de fan, sans lien avec Activision. Aucun outil tiers n'est autorisé officiellement par Activision : utilise-le en connaissance de cause.</p>
+    </section>
+  </div>
+  <nav class="foot-links"><a href="./">Classement</a> · <a href="transparence.html">Transparence</a> · <a href="mentions-legales.html">Mentions légales</a> · <a href="confidentialite.html">Confidentialité</a></nav>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
