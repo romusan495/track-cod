@@ -38,6 +38,14 @@ Le site (classement + pages joueurs) tourne sur le compte Cloudflare **Workers F
 
    L'adresse s'affiche, du type `https://track-cod.<ton-sous-domaine>.workers.dev`.
 
+   Puis prévenir Bing (et les autres moteurs IndexNow) des pages du plan du site :
+
+   ```bash
+   .venv/Scripts/python -m tools.indexnow
+   ```
+
+   Google n'utilise pas IndexNow : pour Google, envoyer `sitemap.xml` dans Search Console, écran Sitemaps.
+
 6. **Brancher le traqueur.** Mets cette adresse dans `trackcod/publish.py` (`SITE_URL`), puis reconstruis l'installeur.
 
 ## Mettre à jour le site
