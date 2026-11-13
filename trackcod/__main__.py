@@ -236,7 +236,8 @@ def main() -> int:
         site_saved()
 
     def view():
-        return build_view(state, time.time(), meta=meta_holder["meta"], thumbs_dir=data / "vignettes")
+        return build_view(state, time.time(), meta=meta_holder["meta"], thumbs_dir=data / "vignettes",
+                          history=read_matches(data / "matches.jsonl", 20))
 
     window = MainWindow(lambda: [w.name for w in registry.weapons()], on_weapon, on_top, state.always_on_top,
                         on_build_chosen=on_build, on_camo_answer=on_answer,

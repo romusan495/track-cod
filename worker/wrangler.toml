@@ -5,6 +5,7 @@ compatibility_date = "2025-09-24"  # newest date supported by the pinned wrangle
 
 [assets]
 directory = "../site"
+binding = "ASSETS"
 
 [[d1_databases]]
 binding = "DB"

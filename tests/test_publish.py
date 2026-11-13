@@ -157,7 +157,7 @@ def test_site_view():
     from trackcod.ui.viewmodel import build_view
     v = build_view(_state(site_id="abc"), 0.0)
     assert (v.site.published, v.site.pseudo, v.site.show_camos) == (True, "Romusan", False)
-    assert v.site.url.endswith("/joueur.html?id=abc")
+    assert v.site.url.endswith("/p/abc")  # share link: Discord shows a card
     assert build_view(AppState(), 0.0).site.url is None
 
 

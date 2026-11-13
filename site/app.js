@@ -84,10 +84,12 @@ async function initLeaderboard() {
     board.replaceChildren(el("p", "empty", "Chargement…"));
     try {
       const res = await fetch(`/api/leaderboard?sort=${sort}`);
-      if (!res.ok) throw new Error(res.status);
-      renderLeaderboard(board, (await res.json()).entries, sort);
-    } catch {
-      board.replaceChildren(el("p", "empty", "Classement indisponible pour le moment, réessaie plus tard."));
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "");
+      renderLeaderboard(board, body.entries, sort);
+    } catch (err) {
+      const why = err && err.message ? `Classement indisponible : ${err.message}.` : "Classement indisponible pour le moment, réessaie plus tard.";
+      board.replaceChildren(el("p", "empty", why));
     }
   }
 

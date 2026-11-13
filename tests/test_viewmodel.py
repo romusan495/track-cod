@@ -284,3 +284,41 @@ def test_erudit_names_never_carry_a_question_mark():
     rupture.name_votes = {"RUPTURE HARMONIQUE": 1}  # a single OCR read: not 'confirmed'
     rows = build_view(AppState(weapon="ISO NIGHTSHADE", sheets={"ISO NIGHTSHADE": s}), 0.0).erudit
     assert [r.name for r in rows] == ["Or", "Platine", "Rupture harmonique", "Divergence"]
+
+
+# ----- local history (survives the official stats being switched off) -----
+
+def _hist_match(i, kills, deaths, result):
+    from trackcod.model import MatchStats
+    return MatchStats(at=1_794_500_000.0 + i * 1000, kills=kills, deaths=deaths, score=3000, result=result,
+                      mode="Domination", map="Port", weapon="M4", fingerprint=f"h{i}")
+
+
+def test_history_curve_and_summary():
+    newest_first = [_hist_match(3, 30, 10, "win"), _hist_match(2, 10, 0, "win"), _hist_match(1, 5, 10, "loss")]
+    v = build_view(AppState(), 0.0, history=newest_first)
+    h = v.history
+    assert [round(p, 2) for p in h.kds] == [0.5, 10.0, 3.0]  # oldest -> newest, deaths 0 counted as 1
+    assert h.results == ["loss", "win", "win"]
+    assert h.summary == "3 dernières parties : K/D 2.25 · 67 % de victoires"  # 45 kills / 20 deaths
+
+
+def test_no_history_section_without_matches():
+    assert build_view(AppState(), 0.0, history=[]).history is None
+    assert build_view(AppState(), 0.0).history is None
+
+
+def test_window_draws_the_history_chart():
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QWidget
+    from trackcod.ui.window import MainWindow
+    app = QApplication.instance() or QApplication([])
+    w = MainWindow([], lambda n: None, lambda b: None)
+    w.render(build_view(AppState(), 0.0, history=[_hist_match(2, 20, 10, "win"), _hist_match(1, 5, 10, "loss")]))
+    chart = w.findChild(QWidget, "kd_chart")
+    assert chart is not None
+    w.resize(400, 800)
+    w.show()
+    chart.grab()  # paints without error
+    w.close()

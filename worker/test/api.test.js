@@ -115,3 +115,60 @@ test("cron removes profiles idle for 90 days", async () => {
   await worker.scheduled({}, e, {});
   assert.equal((await call(e, "GET", `/api/players/${a.body.id}`)).status, 404);
 });
+
+test("leaderboard is cached for a minute", async () => {
+  const e = env();
+  const a = await call(e, "POST", "/api/players", { pseudo: "Alpha" });
+  await call(e, "PUT", `/api/players/${a.body.id}`, stats(), a.body.key);
+  const first = await call(e, "GET", "/api/leaderboard?sort=kd");
+  assert.equal(first.body.entries.length, 1);
+  let reads = 0;
+  const realPrepare = e.DB.prepare.bind(e.DB);
+  e.DB.prepare = (sql) => { if (/FROM players$/.test(sql.trim())) reads += 1; return realPrepare(sql); };
+  e.NOW = T0 + 30_000;
+  await call(e, "GET", "/api/leaderboard?sort=kd");
+  assert.equal(reads, 0);  // served from the cache
+  e.NOW = T0 + 61_000;
+  await call(e, "GET", "/api/leaderboard?sort=kd");
+  assert.equal(reads, 1);
+});
+
+test("database over quota gives a clean 503 message", async () => {
+  const e = env();
+  e.DB = { prepare() { throw new Error("D1_ERROR: Exceeded maximum daily read rows"); } };
+  const r = await call(e, "GET", "/api/players/11111111-2222-3333-4444-555555555555");
+  assert.equal(r.status, 503);
+  assert.match(r.body.error, /surcharg/);
+});
+
+const PAGE = '<!doctype html><html><head><title>Joueur · Track COD</title>\n<meta name="description" content="x">\n</head><body>page</body></html>';
+const assets = { fetch: async () => new Response(PAGE, { headers: { "content-type": "text/html" } }) };
+
+test("share link gives Discord a card with the player's stats", async () => {
+  const e = { ...env(), ASSETS: assets };
+  const a = await call(e, "POST", "/api/players", { pseudo: "Romusan" });
+  await call(e, "PUT", `/api/players/${a.body.id}`, stats(), a.body.key);
+  const res = await worker.fetch(new Request(`https://site.test/p/${a.body.id}`), e, {});
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type"), /text\/html/);
+  const html = await res.text();
+  assert.match(html, /<meta property="og:title" content="Romusan · K\/D 0\.90 · 55 % de victoires">/);
+  assert.match(html, /og:description" content="128 parties · 2 134 éliminations · Niv\. 54 · Prestige 1/);
+  assert.match(html, /og:image" content="https:\/\/site\.test\/og-banner\.jpg"/);
+  assert.match(html, /<title>Romusan · Track COD<\/title>/);
+  assert.match(html, /<body>page<\/body>/);
+  assert.match(html, /<head><base href="\/">/);  // relative style.css / joueur.js still load under /p/
+});
+
+test("share link of an unknown player goes to the leaderboard", async () => {
+  const e = { ...env(), ASSETS: assets };
+  const res = await worker.fetch(new Request("https://site.test/p/11111111-2222-3333-4444-555555555555"), e, {});
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "https://site.test/");
+});
+
+test("share card escapes the pseudo", async () => {
+  const { shareMeta } = await import("../src/share.js");
+  const meta = shareMeta({ id: "x", pseudo: "a\"b<c", data: {} }, "https://s");
+  assert.ok(!meta.includes('a"b') && !meta.includes("<c"));
+});

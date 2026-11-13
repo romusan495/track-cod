@@ -3,8 +3,8 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QIcon, QPainter, QPixmap
+from PySide6.QtCore import QEvent, QObject, QPointF, Qt, QUrl, Signal
+from PySide6.QtGui import QColor, QDesktopServices, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
@@ -37,6 +37,38 @@ QScrollArea {{ border: none; background: transparent; }}
 
 ICON_PATH = Path(__file__).resolve().parents[1] / "assets" / "icon.png"
 BACKGROUND_PATH = Path(__file__).resolve().parents[1] / "assets" / "background.jpg"
+
+
+class _KdChart(QWidget):
+    """K/D of the last matches (oldest left): line + a dot per match, green win / red loss, dashed line at 1.0."""
+
+    def __init__(self, kds: list[float], results: list[str | None]):
+        super().__init__()
+        self.setObjectName("kd_chart")
+        self.kds, self.results = kds, results
+        self.setMinimumHeight(110)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h, pad = self.width(), self.height(), 10
+        p.fillRect(self.rect(), QColor(22, 26, 32, 215))
+        top = max(2.0, max(self.kds) * 1.1)
+        y = lambda v: h - pad - (min(v, top) / top) * (h - 2 * pad)  # noqa: E731
+        x = lambda i: pad + (i * (w - 2 * pad) / max(len(self.kds) - 1, 1))  # noqa: E731
+        p.setPen(QPen(QColor(LINE), 1, Qt.DashLine))
+        p.drawLine(pad, int(y(1.0)), w - pad, int(y(1.0)))
+        p.setPen(QColor(MUTED))
+        p.drawText(w - pad - p.fontMetrics().horizontalAdvance("K/D 1") - 2, int(y(1.0)) - 4, "K/D 1")
+        p.setPen(QPen(QColor(ACCENT), 2))
+        pts = [QPointF(x(i), y(v)) for i, v in enumerate(self.kds)]
+        for a, b in zip(pts, pts[1:]):
+            p.drawLine(a, b)
+        for pt, r in zip(pts, self.results):
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor({"win": OK, "loss": WARN}.get(r, MUTED)))
+            p.drawEllipse(pt, 3.5, 3.5)
+        p.end()
 
 
 class _Backdrop(QObject):
@@ -375,6 +407,11 @@ class MainWindow(QMainWindow):
         if view.global_rows:
             add(_stats_grid(view.global_rows))
         add(_label(view.global_note, "muted"))
+
+        if view.history is not None:
+            add(_label("HISTORIQUE", "section"))
+            add(_KdChart(view.history.kds, view.history.results))
+            add(_label(view.history.summary, "muted"))
 
         if view.mastery:
             add(_label("MAÎTRISE", "section"))

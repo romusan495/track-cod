@@ -43,6 +43,25 @@ class MetaView:
 
 
 @dataclass
+class HistoryView:
+    kds: list[float]          # K/D of each match, oldest -> newest (deaths 0 counted as 1)
+    results: list[str | None]  # win / loss / draw / None, same order
+    summary: str
+
+
+def _history(matches) -> HistoryView | None:
+    if not matches:
+        return None
+    ordered = sorted(matches, key=lambda m: m.at)
+    kills, deaths = sum(m.kills for m in ordered), sum(m.deaths for m in ordered)
+    wins = sum(1 for m in ordered if m.result == "win")
+    n = len(ordered)
+    summary = (f"{n} dernière{'s' if n > 1 else ''} partie{'s' if n > 1 else ''} : "
+               f"K/D {kills / max(deaths, 1):.2f} · {round(wins / n * 100)} % de victoires")
+    return HistoryView([m.kills / max(m.deaths, 1) for m in ordered], [m.result for m in ordered], summary)
+
+
+@dataclass
 class SiteView:
     published: bool
     pseudo: str
@@ -71,6 +90,7 @@ class View:
     mastery_note: str = ""
     player: str = ""  # 'Niv. 54 · Prestige 1'
     site: SiteView | None = None
+    history: HistoryView | None = None
 
 
 def ago(at: float, now: float) -> str:
@@ -222,7 +242,7 @@ def _mastery(state: AppState, meta) -> tuple[list[tuple[str, str]], str]:
     return rows, f"d'après {n} arme{'s' if n > 1 else ''} apprise{'s' if n > 1 else ''}"
 
 
-def build_view(state: AppState, now: float, meta=None, thumbs_dir=None) -> View:
+def build_view(state: AppState, now: float, meta=None, thumbs_dir=None, history=None) -> View:
     sheet = state.sheets.get(state.weapon) if state.weapon else None
     current = None
     military: list[str] = []
@@ -295,8 +315,9 @@ def build_view(state: AppState, now: float, meta=None, thumbs_dir=None) -> View:
         global_note=note,
         notices=list(state.notices),
         meta=_meta_view(state, meta),
+        history=_history(history),
         site=SiteView(state.site_publish, state.site_pseudo or "", state.site_show_camos,
-                      f"{SITE_URL}/joueur.html?id={state.site_id}" if state.site_id else None),
+                      f"{SITE_URL}/p/{state.site_id}" if state.site_id else None),
         mastery=mastery_rows,
         mastery_note=mastery_note,
     )

@@ -206,3 +206,4 @@ ul.never li::before { content: "✖"; position: absolute; left: 4px; color: var(
 .foot-links { text-align: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
 .foot-links a { color: var(--muted); }
 .foot-links a:hover { color: var(--accent); }
+.share { margin-top: 12px; width: 100%; }

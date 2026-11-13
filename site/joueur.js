@@ -56,6 +56,20 @@ export function renderPlayer(container, player, now) {
   }
   profile.append(head, tiles);
   if (s.note) profile.append(el("p", "note", s.note));
+  if (player.id && typeof location !== "undefined") {
+    const share = el("button", "tab share", "Copier le lien de partage");
+    share.type = "button";
+    share.addEventListener("click", async () => {
+      const link = `${location.origin}/p/${player.id}`;
+      try {
+        await navigator.clipboard.writeText(link);
+        share.textContent = "Lien copié : colle-le dans Discord";
+      } catch {
+        share.textContent = link;
+      }
+    });
+    profile.append(share);
+  }
 
   const n = s.matches.length;
   const matches = panel("matches", n > 1 ? `${n} dernières parties` : n === 1 ? "Dernière partie" : "Dernières parties");
@@ -87,7 +101,9 @@ export function renderPlayer(container, player, now) {
 async function initPlayer() {
   setDownloadLinks();
   const box = document.querySelector("#player");
-  const id = new URLSearchParams(location.search).get("id") || "";
+  // joueur.html?id=<id>, or the share link /p/<id>
+  const fromPath = /^\/p\/([0-9a-f-]{36})$/.exec(location.pathname);
+  const id = new URLSearchParams(location.search).get("id") || (fromPath ? fromPath[1] : "");
   try {
     const res = await fetch(`/api/players/${encodeURIComponent(id)}`);
     if (res.status === 404) {
