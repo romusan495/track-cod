@@ -1,5 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://track-cod.romusangames.workers.dev/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://track-cod.romusangames.workers.dev/transparence.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/50-gs</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/apoc-338</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/astaroth-57</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/axion</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/cronen-osprey</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/cronen-squall</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/csg-35</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/finn-lmg</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/fss-carbon-edge-1095</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/han-86</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/hyeon-burst</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/iso-nightshade</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/jokr</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/kastov-762</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/kg-7-vulcan</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/krait-p68</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/m4</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/mar-9</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/mojave-357</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/mosin-nagant</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/oden</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/oris-8-6</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/patriot-xmr</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/pila</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/pm-40-anvil</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/ppsh-41</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/rezi-12</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/rpg-8</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/sang-9mm</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/signal-50</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/type-73</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/vel-46</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/warlord</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/wz-55-striga</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://track-cod.romusangames.workers.dev/armes/x-58-nyx</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
 </urlset>
