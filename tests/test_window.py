@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -146,3 +147,20 @@ def test_always_on_top_is_dropped_during_a_match(app):
     w.render(build_view(s, 1000))
     assert w.windowFlags() & Qt.WindowStaysOnTopHint
     w.close()
+
+
+def test_closing_the_app_does_not_crash(tmp_path):
+    """The compact window must be owned by the main window: otherwise Python frees it after QApplication at exit
+    and the process dies with 0xC0000409/0xC0000005 (tracker crashing on quit, CI failing)."""
+    import subprocess
+    import sys
+    code = ("import os; os.environ['QT_QPA_PLATFORM']='offscreen'\n"
+            "from PySide6.QtWidgets import QApplication\n"
+            "app = QApplication([])\n"
+            "from trackcod.model import AppState\n"
+            "from trackcod.ui.viewmodel import build_view\n"
+            "from trackcod.ui.window import MainWindow\n"
+            "w = MainWindow(['M4'], lambda n: None, lambda on: None)\n"
+            "w.render(build_view(AppState(), 0))\n")
+    r = subprocess.run([sys.executable, "-c", code], cwd=Path(__file__).resolve().parents[1], timeout=60)
+    assert r.returncode == 0

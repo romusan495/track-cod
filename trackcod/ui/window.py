@@ -152,8 +152,10 @@ def _stats_grid(rows: list[tuple[str, str]], columns: int = 4) -> QWidget:
 class CompactWindow(QWidget):
     """Small always-on-top window: the weapon and the camo to do. Never shown during a match (see View.playing)."""
 
-    def __init__(self, on_expand: Callable[[], None]):
-        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+    def __init__(self, on_expand: Callable[[], None], parent: QWidget | None = None):
+        # Owned by the main window (still a separate on-screen window): Qt frees it with its parent, never after
+        # QApplication, which crashed the process on quit.
+        super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Track COD")
         self.setWindowIcon(app_icon())
         self.setStyleSheet(STYLE)
@@ -242,7 +244,7 @@ class MainWindow(QMainWindow):
         self._on_compact = on_compact
         self._compact = False
         self._playing = False
-        self.compact_window = CompactWindow(lambda: self._set_compact(False))
+        self.compact_window = CompactWindow(lambda: self._set_compact(False), self)
         self._site_draft = ""      # pseudo being typed: survives the re-renders
         self._site_hint = ""
         scroll = QScrollArea()

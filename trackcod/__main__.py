@@ -335,6 +335,11 @@ def main() -> int:
                 save_state(state, state_path)
         else:
             save_state(state, state_path)
+    # free the windows while QApplication exists: freed by Python after it, Qt aborts the process on quit
+    from PySide6.QtCore import QCoreApplication, QEvent
+    for w in app.topLevelWidgets():
+        w.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     return code
 
 
