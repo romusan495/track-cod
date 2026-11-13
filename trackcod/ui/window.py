@@ -3,18 +3,20 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
+from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Signal
+from PySide6.QtGui import QColor, QDesktopServices, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMainWindow,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from trackcod.ui.viewmodel import RowView, View
 
 BG, PANEL, LINE, TXT, MUTED, ACCENT, OK, WARN, BLUE = (
-    "#0d0f12", "#1d222a", "#2a313b", "#e7ebf0", "#8a94a3", "#f2b33d", "#4fc27a", "#e0703c", "#4c9be8")
+    "#0d0f12", "rgba(22, 26, 32, 215)", "#2a313b", "#e7ebf0", "#9aa3b1", "#f2b33d", "#4fc27a", "#e0703c", "#4c9be8")
+VEIL = (8, 10, 13, 150)  # dark layer over the background image, keeps the text readable
 
 STYLE = f"""
-QMainWindow, QWidget#root {{ background: {BG}; }}
+QMainWindow {{ background: {BG}; }}
+QWidget#root {{ background: transparent; }}
 QLabel {{ color: {TXT}; font-family: 'Segoe UI'; font-size: 13px; }}
 QLabel[role="muted"] {{ color: {MUTED}; font-size: 11px; }}
 QLabel[role="section"] {{ color: {MUTED}; font-size: 11px; letter-spacing: 1px; margin-top: 10px; }}
@@ -30,10 +32,32 @@ QFrame#stat {{ background: {PANEL}; border-radius: 6px; }}
 QCheckBox {{ color: {MUTED}; font-size: 11px; }}
 QFrame#meta {{ background: {PANEL}; border-left: 3px solid {BLUE}; border-radius: 6px; }}
 QComboBox {{ color: {TXT}; background: {BG}; border: 1px solid {LINE}; border-radius: 4px; padding: 2px 6px; }}
-QScrollArea {{ border: none; background: {BG}; }}
+QScrollArea {{ border: none; background: transparent; }}
 """
 
 ICON_PATH = Path(__file__).resolve().parents[1] / "assets" / "icon.png"
+BACKGROUND_PATH = Path(__file__).resolve().parents[1] / "assets" / "background.jpg"
+
+
+class _Backdrop(QObject):
+    """Paints the background image behind the scroll area's viewport: it fills the window (cropped, kept on
+    the right where the rifle is) and stays put while the content scrolls."""
+
+    def __init__(self, viewport: QWidget, pixmap: QPixmap):
+        super().__init__(viewport)
+        self.viewport, self.pixmap = viewport, pixmap
+        viewport.setAutoFillBackground(False)
+        viewport.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if obj is self.viewport and event.type() == QEvent.Paint and not self.pixmap.isNull():
+            p = QPainter(self.viewport)
+            size = self.viewport.size()
+            scaled = self.pixmap.scaled(size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            p.drawPixmap(size.width() - scaled.width(), size.height() - scaled.height(), scaled)
+            p.fillRect(self.viewport.rect(), QColor(*VEIL))
+            p.end()
+        return False
 
 
 def app_icon() -> QIcon:
@@ -117,6 +141,8 @@ class MainWindow(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         self.setCentralWidget(scroll)
+        self._backdrop = QPixmap(str(BACKGROUND_PATH))
+        _Backdrop(scroll.viewport(), self._backdrop)
         self._root = QWidget()
         self._root.setObjectName("root")
         scroll.setWidget(self._root)

@@ -5,16 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Stats d'un joueur de Call of Duty MW4 publiées par Track COD.">
 <title>Joueur · Track COD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
-  <header class="brand">
-    <a href="./"><b>TRACK COD</b><small>MW4 · stats des joueurs</small></a>
-    <a class="dl" id="download">⬇ Télécharger</a>
+<main class="shell">
+  <header class="topbar">
+    <a class="brand" href="./"><span class="mark" aria-hidden="true"></span><span><b>TRACK COD</b><small>MW4 · stats des joueurs</small></span></a>
+    <a class="dl" data-download>⬇ Télécharger</a>
   </header>
   <a class="back" href="./">← Classement</a>
-  <section id="player" aria-live="polite"><p class="empty">Chargement…</p></section>
+  <div class="layout player-layout" id="player" aria-live="polite"><p class="panel empty">Chargement…</p></div>
 </main>
 <script type="module" src="joueur.js"></script>
 </body>

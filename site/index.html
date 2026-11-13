@@ -3,19 +3,79 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Classement des joueurs de Call of Duty MW4 qui utilisent Track COD, le traqueur de camos et de stats.">
-<title>Track COD · classement</title>
+<title>Track COD · traqueur de camos et stats pour Call of Duty MW4 (classement des joueurs)</title>
+<meta name="description" content="Track COD, le traqueur (tracker) gratuit de camos et de stats pour Call of Duty MW4 : camo à faire, défis, spéciaux, Or, Platine, Rupture harmonique, K/D et classement des joueurs. Téléchargement gratuit.">
+<meta name="keywords" content="Track COD, traqueur, tracqueur, tracker, COD, Call of Duty, MW4, Modern Warfare 4, camo, camouflage, défis, stats, K/D, classement">
+<meta name="robots" content="index, follow">
+<meta name="google-site-verification" content="EDcff842aSWvpRr-yjZIvg7-ZuNWcEj0T8Wu4ZP00sc">
+<link rel="canonical" href="https://track-cod.romusangames.workers.dev/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Track COD">
+<meta property="og:title" content="Track COD · traqueur de camos et stats pour Call of Duty MW4">
+<meta property="og:description" content="Suis tes camos et tes stats MW4 et compare-toi à tes potes. Traqueur gratuit pour PC.">
+<meta property="og:url" content="https://track-cod.romusangames.workers.dev/">
+<meta property="og:image" content="https://track-cod.romusangames.workers.dev/icon-256.png">
+<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#0e1116">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Track COD",
+  "alternateName": ["Track COD MW4", "traqueur COD", "tracker COD MW4"],
+  "description": "Traqueur gratuit de camos et de stats pour Call of Duty MW4 (lecture d'écran), avec classement des joueurs.",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Windows",
+  "inLanguage": "fr",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "url": "https://track-cod.romusangames.workers.dev/",
+  "downloadUrl": "https://github.com/romusan495/track-cod/releases/latest"
+}
+</script>
 </head>
 <body>
-<main>
-  <header class="brand">
-    <a href="./"><b>TRACK COD</b><small>MW4 · stats des joueurs</small></a>
-    <a class="dl" id="download">⬇ Télécharger</a>
+<main class="shell">
+  <header class="topbar">
+    <a class="brand" href="./"><span class="mark" aria-hidden="true"></span><span><b>TRACK COD</b><small>MW4 · stats des joueurs</small></span></a>
+    <a class="dl" data-download>⬇ Télécharger</a>
   </header>
-  <nav class="tabs" id="tabs" aria-label="Trier le classement"></nav>
-  <section id="board" aria-live="polite"></section>
-  <p class="foot">Stats lues par le traqueur sur l'écran de chaque joueur, publiées seulement s'il le choisit.</p>
+
+  <div class="layout">
+    <section class="panel hero">
+      <p class="kicker">Traqueur gratuit pour PC</p>
+      <p class="hero-title">TRACK COD</p>
+      <p class="hero-sub">Camos, défis et stats de <strong>Call of Duty MW4</strong>, lus sur ton écran. Compare-toi à tes potes.</p>
+      <a class="dl big" data-download>⬇ Télécharger gratuitement</a>
+      <p class="hero-meta">Windows · lecture d'écran uniquement · sans compte</p>
+    </section>
+
+    <section class="panel board-panel">
+      <div class="panel-head"><h1>Classement des joueurs MW4</h1><span class="live">en direct</span></div>
+      <nav class="tabs" id="tabs" aria-label="Trier le classement"></nav>
+      <div id="board" aria-live="polite"></div>
+    </section>
+
+    <section class="panel about">
+      <div class="panel-head"><h2>Track COD, le traqueur de camos et de stats pour Call of Duty MW4</h2></div>
+      <p>Track COD est un traqueur (tracker) gratuit pour PC qui suit ta progression dans <strong>Call of Duty MW4</strong> en lisant ton écran, sans jamais toucher au jeu.</p>
+      <ul>
+        <li>Le <strong>camo à faire</strong> sur ton arme, avec son défi : camouflages militaires, spéciaux, Or, Platine, Rupture harmonique et Divergence.</li>
+        <li>Tes <strong>stats</strong> : dernière partie, K/D global, victoires, éliminations, niveau et prestige.</li>
+        <li>La <strong>classe méta</strong> de ton arme.</li>
+        <li>Ce <strong>classement</strong>, pour te comparer à tes potes, si tu choisis de publier tes stats.</li>
+      </ul>
+    </section>
+  </div>
+
+  <p class="foot">Stats lues par le traqueur sur l'écran de chaque joueur, publiées seulement s'il le choisit. Track COD est un projet de fan, sans lien avec Activision.</p>
 </main>
 <script type="module" src="app.js"></script>
 </body>

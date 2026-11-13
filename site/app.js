@@ -69,7 +69,7 @@ export function renderLeaderboard(container, entries, sort) {
 }
 
 export function setDownloadLinks() {
-  for (const a of document.querySelectorAll("#download")) a.href = DOWNLOAD_URL;
+  for (const a of document.querySelectorAll("[data-download]")) a.href = DOWNLOAD_URL;
 }
 
 async function initLeaderboard() {

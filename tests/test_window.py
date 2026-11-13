@@ -88,3 +88,18 @@ def test_mastery_section_rendered(app):
     texts = [lab.text() for lab in w.findChildren(QLabel)]
     assert "MAÎTRISE" in texts and "0/33" in texts and "d'après 1 arme apprise" in texts
     w.close()
+
+
+def test_window_has_the_background_image(app):
+    from trackcod.ui.window import BACKGROUND_PATH
+    w = MainWindow(["ISO Nightshade"], lambda n: None, lambda b: None)
+    assert BACKGROUND_PATH.exists()
+    assert w._backdrop is not None and not w._backdrop.isNull()
+    w.render(build_view(AppState(), 0))
+    w.resize(380, 700)
+    w.show()
+    img = w.grab().toImage()
+    # the image shows through the transparent content: not the old flat background colour everywhere
+    colors = {img.pixelColor(x, 600).name() for x in range(20, 360, 20)}
+    assert len(colors) > 3
+    w.close()

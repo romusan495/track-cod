@@ -31,23 +31,35 @@ export function playerSummary(player, now = Date.now() / 1000) {
   return { title: player.pseudo, sub, tiles, note: calibrated ? "" : "global en attente de calibrage", matches, mastery };
 }
 
+function panel(cls, title) {
+  const box = el("section", `panel ${cls}`);
+  if (title) {
+    const head = el("div", "panel-head");
+    head.append(el("h2", null, title));
+    box.append(head);
+  }
+  return box;
+}
+
 export function renderPlayer(container, player, now) {
   const s = playerSummary(player, now);
   document.title = `${s.title} · Track COD`;
+
+  const profile = panel("profile");
   const head = el("div", "head");
-  head.append(el("h1", null, s.title), el("span", null, s.sub));
+  head.append(el("h1", null, s.title), el("span", "rank", s.sub));
   const tiles = el("div", "tiles");
   for (const [label, value] of s.tiles) {
     const t = el("div", "tile");
     t.append(el("b", null, value), el("span", null, label));
     tiles.append(t);
   }
-  container.replaceChildren(head, tiles);
-  if (s.note) container.append(el("p", "note", s.note));
+  profile.append(head, tiles);
+  if (s.note) profile.append(el("p", "note", s.note));
 
   const n = s.matches.length;
-  container.append(el("div", "sect", n > 1 ? `${n} dernières parties` : n === 1 ? "Dernière partie" : "Dernières parties"));
-  if (!s.matches.length) container.append(el("p", "note", "Aucune partie publiée pour l'instant."));
+  const matches = panel("matches", n > 1 ? `${n} dernières parties` : n === 1 ? "Dernière partie" : "Dernières parties");
+  if (!n) matches.append(el("p", "note", "Aucune partie publiée pour l'instant."));
   for (const m of s.matches) {
     const row = el("div", `match ${m.result || ""}`.trim());
     const left = el("div", null, m.title);
@@ -55,18 +67,20 @@ export function renderPlayer(container, player, now) {
     const right = el("div", "kd", m.kd);
     right.append(el("small", null, m.pts));
     row.append(left, right);
-    container.append(row);
+    matches.append(row);
   }
 
+  container.replaceChildren(profile, matches);
   if (s.mastery) {
-    container.append(el("div", "sect", "Maîtrise des camos"));
+    const mastery = panel("mastery", "Maîtrise des camos");
     const grid = el("div", "mast");
     for (const [label, value] of s.mastery) {
       const c = el("div");
       c.append(el("b", null, value), el("span", null, label));
       grid.append(c);
     }
-    container.append(grid);
+    mastery.append(grid);
+    container.append(mastery);
   }
 }
 
@@ -77,13 +91,13 @@ async function initPlayer() {
   try {
     const res = await fetch(`/api/players/${encodeURIComponent(id)}`);
     if (res.status === 404) {
-      box.replaceChildren(el("p", "empty", "Joueur introuvable."));
+      box.replaceChildren(el("p", "panel empty", "Joueur introuvable."));
       return;
     }
     if (!res.ok) throw new Error(res.status);
     renderPlayer(box, await res.json());
   } catch {
-    box.replaceChildren(el("p", "empty", "Page indisponible pour le moment, réessaie plus tard."));
+    box.replaceChildren(el("p", "panel empty", "Page indisponible pour le moment, réessaie plus tard."));
   }
 }
 
