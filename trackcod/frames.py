@@ -3,6 +3,7 @@
 from trackcod.capture.screen import find_game_window, grab
 from trackcod.ocr.engine import ocr_image
 from trackcod.readers.apparence import ocr_apparence
+from trackcod.readers.challenge_done import ocr_center_band
 from trackcod.readers.classify import classify
 from trackcod.readers.common import OcrLine
 from trackcod.readers.daily import daily_bars
@@ -61,4 +62,6 @@ def live_frame_source() -> list[OcrLine] | None:
         return ocr_own_row(img, base)
     if kind == "daily":  # the counters are often unreadable: measure the progress bars instead
         return base + daily_bars(img, base)
+    if kind == "other":  # in match: 'DÉFI TERMINÉ' in white over the sky, re-read zoomed when something shows there
+        return ocr_center_band(img, base)
     return base

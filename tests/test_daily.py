@@ -159,3 +159,32 @@ def test_console_daily_panel():
     assert board.challenges[1].text.startswith("Faitfl2 élimination(s) peu après av")
     assert "COMP" not in board.challenges[0].text
     assert board.bonus == (3, 3) and board.resets_in_s == 12 * 3600 + 31 * 60
+
+
+def test_garbled_title_is_not_a_challenge():
+    """Real session 14/11 (pause menu): 'owz_cTRL.eez' (a tiny line) and '•pÉFlS OU 22H' (the title) were
+    taken for a fifth challenge."""
+    board = read_daily(load("defis_du_jour_titre_parasite"))
+    assert [c.text.split()[0] for c in board.challenges] == ["Faites", "Faites", "Terminez", "Marquez"]
+    assert all(c.done for c in board.challenges)
+    assert board.resets_in_s is None or board.resets_in_s >= 22 * 3600
+
+
+def test_whole_board_drops_junk_and_cleans_done_challenges():
+    """State left by the 14/11 session: junk lines kept as challenges, 'COMPÜÉTÉ' stuck to a text, and done
+    challenges showing their old counter (2/3, 0/2)."""
+    state = AppState(daily=[
+        DailyChallenge("Faites 3 élimination[s) avec votre arme secondaire. COMPÜÉTÉ", 3, 2, True),
+        DailyChallenge("Faites 15 éliminations avec des mitraillettes.", 15, 15, True),
+        DailyChallenge("Terminez 2 partiels) avéïülh ratio éliminations/morts positif.-", 2, 2, True),
+        DailyChallenge("Marquez au moins 1000 points au cours diune même partie 2 fois. c OMP VÉTÉ", 2, 0, True),
+        DailyChallenge("DA r A _ cTREga2", 2, 0, False),
+        DailyChallenge("oarz_c1RL.eeZ .PÉElSPU;anl.J8. 23H", 8, 0, False),
+        DailyChallenge("DATA _ TRL _gaz .PÉFI%DUUOUR. 23H 4M", 23, 16, False),
+    ])
+    merge_board(state, read_daily(load("defis_du_jour_titre_parasite")), now=1000.0)
+    assert len(state.daily) == 4
+    assert all(c.done and c.progress == c.total for c in state.daily)
+    assert not any("COMP" in c.text.upper().split()[-1] for c in state.daily)
+    assert [c.text.endswith("partie 2 fois.") for c in state.daily if c.text.startswith("Marquez")] == [True]
+    assert not any("ï" in c.text or c.text.endswith("-") for c in state.daily)

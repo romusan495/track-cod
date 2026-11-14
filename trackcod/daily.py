@@ -51,6 +51,30 @@ def merge_board(state: AppState, board: DailyBoard | None, now: float) -> bool:
     return before[:2] != (repr(state.daily), state.daily_bonus) or resets_moved
 
 
+def _strip_complete(text: str) -> str:
+    """'... arme secondaire. COMPÜÉTÉ': the done label read on the same line as the end of the challenge."""
+    words = text.split()
+    for n in (3, 2, 1):  # the longest: 'c OMP VÉTÉ' leaves no 'c'
+        if len(words) > n and fuzz.ratio(norm("".join(words[-n:])), "COMPLETE") >= 70:
+            return " ".join(words[:-n])
+    return text
+
+
+_CLEAN = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 éèêàâçîôûùÉÈÊÀÂÇÎÔÛ'.,()[]/:-")
+
+
+def _noise(text: str) -> int:
+    """Characters a French challenge never holds ('avéïülh'), plus stray marks at the end ('positif.-')."""
+    return sum(c not in _CLEAN for c in text) + text.rstrip().endswith(("-", "•"))
+
+
+def _looks_like_challenge(text: str) -> bool:
+    """A challenge starts with a verb ('Faites', 'Terminez', 'Révélez'...), even garbled ('neveldL'); the title
+    and labels read on 14/11 did not ('DA r A _ cTREga2', 'oarz_c1RL.eeZ .PÉElSPU;anl.J8. 23H')."""
+    first = text.split()[0] if text.split() else ""
+    return "_" not in text and sum(c.isalpha() for c in first) >= 5
+
+
 def _whole(read) -> bool:
     return read.total is not None and len(read.text) >= 15
 
@@ -67,15 +91,22 @@ def _merge(state: AppState, board: DailyBoard, now: float) -> None:
         matches = [None] * len(board.challenges)
     for read, known in zip(board.challenges, matches):
         if known is None:
-            if _whole(read):
+            if _whole(read) and _looks_like_challenge(read.text):
                 state.daily.append(DailyChallenge(read.text, read.total, read.progress, read.done))
             continue
         if len(read.text) > len(known.text) and fuzz.partial_ratio(_key(known.text), _key(read.text)) >= 95:
             known.text = read.text  # the same wording, more of it (never a garbled read over a clean one)
+        elif _noise(read.text) < _noise(known.text) and len(read.text) >= 0.8 * len(known.text):
+            known.text = read.text  # a cleaner read of it ('avec un ratio' over 'avéïülh ratio')
         known.total = read.total or known.total
         if read.progress is not None:
             known.progress = read.progress
         known.done = known.done or read.done
+    state.daily = [c for c in state.daily if _looks_like_challenge(c.text)]  # also junk kept by older versions
+    for c in state.daily:
+        c.text = _strip_complete(c.text)
+        if c.done and c.total:
+            c.progress = c.total  # a done challenge shows its full counter, not the last one read
     if board.bonus is not None:
         state.daily_bonus = board.bonus
     if board.resets_in_s is not None:

@@ -18,6 +18,7 @@ from trackcod.readers.common import OcrLine, norm
 from trackcod.readers.match_start import read_breadcrumb, read_match_info, read_match_start, read_weapon_title
 from trackcod.readers.scoreboard import read_scoreboard
 from trackcod.known_camos import KnownCamos
+from trackcod.readers.challenge_done import challenge_fits
 from trackcod.readers.unlock_banner import has_unlocked_word, read_banner
 from trackcod.thumbs import save_thumbs
 from trackcod.readers.class_screen import read_class_weapon
@@ -25,7 +26,7 @@ from trackcod.readers.daily import read_daily, read_daily_toast
 from trackcod.readers.item_unlock import read_item_unlock
 from trackcod.readers.player import read_player_level
 from trackcod.sheets import _erudit_needs_specials, answer_camo, apply_tile_locks, count_item_unlock, display_name
-from trackcod.sheets import apply_apparence, count_match, mark_unlocked, new_sheet, seed_specials
+from trackcod.sheets import apply_apparence, count_match, display_name, mark_unlocked, new_sheet, seed_specials
 from trackcod.stats import calibrate, record_match
 from trackcod.store import append_match, save_state
 from trackcod.weapons import WeaponRegistry
@@ -52,6 +53,7 @@ def same_card(a: str, b: str) -> bool:
 BANNER_CONFIRM_S =8.0   # 'DÉBLOQUÉ' must follow the banner within this delay
 ITEM_GAP_S = 2.5          # an unreadable item card seen again after this gap is a new unlock
 ITEM_REPEAT_S = 30.0      # the same item name seen again within this delay is the same unlock
+CHALLENGE_CONFIRM_S = 6.0  # 'DÉFI TERMINÉ': a decisive read and another read of the banner within this delay
 UNLOCK_REPEAT_S = 60.0   # the same unlock seen again within this delay is ignored
 MAX_NOTICES = 5
 SUSPENDED = "Lecture de l'écran suspendue par Track COD"
@@ -82,6 +84,8 @@ class Engine:
         self._level_read: int | None = None             # last badge read, waiting for a second one
         self._items_seen: list[tuple[str, float]] = []   # (item card text, last seen)
         self._item_card_at = -1e9
+        self._item_unnamed = False                        # the last card seen had no item name
+        self._challenge_reads: list[tuple[float, set[str], set[str]]] = []  # (at, decisive, fitting)
 
     # ----- helpers -----
 
@@ -129,7 +133,8 @@ class Engine:
         """Same numbers seen again while the scoreboard stays up (mode text is OCR-unstable, so ignored)."""
         last = self.state.last_match
         same = (last is not None and m.at - self._scoreboard_seen_at < SAME_MATCH_WINDOW_S
-                and (last.kills, last.deaths, last.score, last.result) == (m.kills, m.deaths, m.score, m.result))
+                and (last.kills, last.deaths, last.result) == (m.kills, m.deaths, m.result)
+                and (last.score == m.score or last.score is None or m.score is None))  # score unreadable on one frame
         if same:
             self._scoreboard_seen_at = m.at
         return same
@@ -144,6 +149,31 @@ class Engine:
         self._notice(f"Débloqué : {banner.weapon} — {banner.label}")
         return True
 
+    def _challenge_done(self, lines: list[OcrLine], now: float) -> bool:
+        """'DÉFI TERMINÉ' in the middle of the screen: the camo is done once a frame names it alone and another
+        frame of the same banner backs it up."""
+        weapon = self.state.weapon
+        if self.state.phase != "in_match" or weapon not in self.state.sheets:
+            return False
+        sheet = self.state.sheets[weapon]
+        decisive, fitting = challenge_fits(lines, sheet)
+        self._challenge_reads = [r for r in self._challenge_reads if now - r[0] <= CHALLENGE_CONFIRM_S]
+        if not fitting:
+            return False
+        self._challenge_reads.append((now, decisive, fitting))
+        reads = self._challenge_reads
+        for i, (_, keys, _) in enumerate(reads):
+            for key in keys:
+                if any(key in other for j, (_, _, other) in enumerate(reads) if j != i):
+                    camo = next(c for c in sheet.camos if c.key == key)
+                    camo.state = "done"
+                    if camo.progress:
+                        camo.progress = (camo.progress[1], camo.progress[1])
+                    self._challenge_reads = []
+                    self._notice(f"Défi terminé : {weapon} — {display_name(camo)}")
+                    return True
+        return False
+
     def _count_item(self, lines: list[OcrLine], now: float, camo_pending: bool) -> bool:
         """Level-up card 'DÉBLOQUÉ' + item: one weapon item closer to the next special (not for camos)."""
         unlock = read_item_unlock(lines)
@@ -151,6 +181,11 @@ class Engine:
             return False
         gap = now - self._item_card_at
         self._item_card_at = now
+        unnamed_just_before = gap <= ITEM_GAP_S and self._item_unnamed
+        self._item_unnamed = not unlock.item
+        if unlock.item and unnamed_just_before:  # the name shows a frame after the title: the same banner
+            self._items_seen.append((unlock.item, now))
+            return False
         self._items_seen = [(t, at) for t, at in self._items_seen if now - at <= ITEM_REPEAT_S]
         if unlock.item:
             same = next((i for i, (t, _) in enumerate(self._items_seen)
@@ -162,13 +197,14 @@ class Engine:
             self._items_seen.append((unlock.item, now))
         elif gap <= ITEM_GAP_S:
             return False
-        if unlock.is_camo or camo_pending or not self.state.weapon:
+        weapon = (self.registry.match(unlock.weapon) if unlock.weapon else None) or self.state.weapon
+        if unlock.is_camo or camo_pending or not weapon:
             return False
-        sheet = self.sheet(self.state.weapon)
+        sheet = self.sheet(weapon)
         opened = count_item_unlock(sheet)
-        log.info("élément d'arme débloqué (%s) : %s", self.state.weapon, unlock.item or "?")
+        log.info("élément d'arme débloqué (%s) : %s", weapon, unlock.item or "?")
         for c in opened:
-            self._notice(f"Spécial accessible : {self.state.weapon} — {display_name(c)}")
+            self._notice(f"Spécial accessible : {weapon} — {display_name(c)}")
         return True
 
     def _finish_apparence(self) -> bool:
@@ -287,6 +323,8 @@ class Engine:
         if kind == "daily":
             return merge_board(self.state, read_daily(lines), now)
         if apply_toast(self.state, read_daily_toast(lines)):
+            return True
+        if self._challenge_done(lines, now):
             return True
         banner = read_banner(lines, self.registry, self.known)
         if banner is not None:

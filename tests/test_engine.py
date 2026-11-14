@@ -286,3 +286,15 @@ def test_a_match_with_kills_counts_for_the_target_camo(env):
     frames.append(load("scoreboard_victoire"))
     e.step()
     assert next_camo(sheet).matches_unread == 1
+
+
+def test_same_match_read_again_without_its_score_counts_once(env):
+    """Real session 14/11, 10:23: 21/19 with 2500, then 21/19 with an unreadable score 6 s later: one match."""
+    make, frames, clock, tmp = env
+    e = make()
+    board = load("scoreboard_victoire")
+    no_score = [l for l in board if l.text.strip() != "1595"]
+    frames.extend([load("match_start_iso"), board, no_score])
+    _run(e, clock, 3, dt=6.0)
+    assert e.state.global_stats.games == 1
+    assert len((tmp / "matches.jsonl").read_text(encoding="utf-8").splitlines()) == 1

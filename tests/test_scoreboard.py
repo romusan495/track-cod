@@ -75,3 +75,12 @@ def test_zoomed_row_replaces_the_first_read_of_that_row():
     out = replace_row(base, zoom, (0.08, 0.645, 0.47, 0.686))
     texts = {l.text for l in out}
     assert "28" not in texts and {"20", "27", "Autre", "Joueur1"} <= texts
+
+
+def test_defeat_title_on_the_right_with_a_mark():
+    """Real session 14/11: on a defeat the title sits on the right and reads 'DÉFAITE :' (a stroke next to it).
+    Every defeat of the session was dropped."""
+    m = read_scoreboard(load("scoreboard_defaite_titre_a_droite"), at=1.0, weapon="CRONEN OSPREY")
+    assert m is not None
+    assert (m.kills, m.deaths, m.score, m.result) == (29, 17, 3915, "loss")
+    assert m.mode == "MATCH À MORT PAR EQUIPE HARDCORE" or "MORT PAR EQUIPE HARDCORE" in m.mode

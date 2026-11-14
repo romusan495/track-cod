@@ -226,3 +226,48 @@ def test_same_card_rule():
     assert same_card("MUNITIONS PERFORANTES X 30 MM PART SRY LAUSER81", "ADMINISTRATIF MUNITIONS PERFORANTES X INJ")
     assert not same_card("CHARGEUR 30 CARTOUCHES", "CHARGEUR 45 CARTOUCHES")
     assert not same_card("SILENCIEUX MONOLITHIQUE", "CROSSE DEMO HVR2")
+
+
+def _fixture(name):
+    import json
+    from pathlib import Path
+    path = Path(__file__).parent / "fixtures" / "ocr" / f"{name}.json"
+    return [OcrLine(**d) for d in json.loads(path.read_text(encoding="utf-8"))]
+
+
+import pytest
+
+
+@pytest.mark.parametrize("frame", [2243, 2888, 3344, 4290, 4594])
+def test_half_read_banner_in_the_middle_is_an_item(frame):
+    """Real session 14/11 (Cronen Osprey): 'NOUVEL ÉLÉMENT DÉBLOQUÉ' in white over the sky, read 'IJYEL ÉLÉMENT
+    D -', 'NOUVEL ÉLÉ?', 'L ÉLÉMENT DÉB', 'L ÉLÉM'...: 9 banners of 13 were missed."""
+    unlock = read_item_unlock(_fixture(f"element_debloque_{frame}"))
+    assert unlock is not None and not unlock.is_camo
+
+
+def test_banner_weapon_is_read_under_the_title():
+    unlock = read_item_unlock(_fixture("element_debloque_3344"))
+    assert unlock.weapon == "CRONEN OSPREY"
+
+
+def test_item_name_read_on_the_next_frame_is_the_same_banner(tmp_path, registry):
+    """The card name ('XR-9 TACTIQUE V2') shows up a frame after the title: still one item."""
+    title = [OcrLine("L ÉLÉMENT DÉB", 0.44, 0.27, 0.1, 0.02)]
+    named = title + [OcrLine("XR-9 TACTIQUE V2", 0.60, 0.32, 0.08, 0.015)]
+    frames = [title, named, named, OTHER]
+    e, clock = _engine(tmp_path, registry, frames)
+    _run(e, clock, 4)
+    assert _special(e.state.sheets["REZI 12"], "Or noir").items_left == 1
+
+
+def test_menu_label_alone_in_the_middle_is_not_a_banner():
+    assert read_item_unlock(_lines(("DÉBLOQUÉ", 0.45, 0.27))) is None
+
+
+def test_item_counts_for_the_weapon_named_on_the_banner(tmp_path, registry):
+    """The banner names its weapon ('CRONEN OSPREY' under the title): another weapon's specials stay as they are."""
+    banner = [OcrLine("L ÉLÉMENT DÉB", 0.44, 0.27, 0.1, 0.02), OcrLine("CRONEN OSPREY", 0.47, 0.32, 0.06, 0.015)]
+    e, clock = _engine(tmp_path, registry, [banner, OTHER])
+    _run(e, clock, 2)
+    assert _special(e.state.sheets["REZI 12"], "Or noir").items_left == 2

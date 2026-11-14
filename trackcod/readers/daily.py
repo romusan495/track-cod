@@ -79,8 +79,9 @@ def _paragraphs(lines: list[OcrLine], anchor: OcrLine) -> list[tuple[list[OcrLin
             continue
         # the title ('DÉFIS DU JOUR') is the topmost line and a bit bigger; a challenge line can also be read
         # taller ('Faitfl2 élimination(s) peu après', console), so only a much bigger line elsewhere is skipped
-        title = line.h > (1.2 if i == 0 else 1.9) * h
-        if text.startswith("BONUS") or title or sum(c.isalpha() for c in text) < 3:
+        title = line.h > (1.2 if i == 0 else 1.9) * h or _is_title(text)
+        tiny = line.h < 0.6 * h  # a small label above the panel ('owz_cTRL.eez', 14/11)
+        if text.startswith("BONUS") or title or tiny or sum(c.isalpha() for c in text) < 3:
             last = None  # title, labels, stray marks
             continue
         if last is not None and line.y - (last.y + last.h) < 0.9 * h:  # gap under the previous line
@@ -91,10 +92,17 @@ def _paragraphs(lines: list[OcrLine], anchor: OcrLine) -> list[tuple[list[OcrLin
     return [(p, done) for p, done in paragraphs]
 
 
+def _is_title(text: str) -> bool:
+    """'DÉFIS DU JOUR 22H', also garbled ('•pÉFlS OU 22H'): the timer or the words give it away."""
+    return bool(_TIMER.search(text) or re.search(r"\b\d{1,2}\s*H\s*$", text)
+                or fuzz.partial_ratio("DEFIS DU JOUR", text) >= 80)
+
+
 def _is_complete(text: str) -> bool:
-    """'COMPLÉTÉ' under a done challenge, also when read 'COMPÜÉTÉ' (console)."""
+    """'COMPLÉTÉ' under a done challenge, also when read 'COMPÜÉTÉ' (console) or split ('c OMP VÉTÉ')."""
     words = text.split()
-    return bool(words) and len(words) <= 2 and fuzz.ratio(words[0], "COMPLETE") >= 70
+    return (bool(words) and len(words) <= 3
+            and max(fuzz.ratio(words[0], "COMPLETE"), fuzz.ratio("".join(words), "COMPLETE")) >= 70)
 
 
 def _total(text: str) -> int | None:

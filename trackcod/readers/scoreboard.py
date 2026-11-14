@@ -19,7 +19,7 @@ _ELIM_SHARE = (0.365 - 0.322) / (0.453 - 0.322)  # ÉLIM. between SCORE and MORT
 
 def _result_line(lines: list[OcrLine]) -> tuple[OcrLine, str] | None:
     for line in lines:
-        text = norm(line.text)
+        text = re.sub(r"[^A-Z]", "", norm(line.text))  # 'DÉFAITE :' (a stroke next to the title, 14/11)
         if line.y < 0.2 and line.h > 0.04 and text in RESULTS:
             return line, RESULTS[text]
     return None
@@ -92,11 +92,14 @@ def _value(lines: list[OcrLine], header: OcrLine | None, row: OcrLine) -> int | 
 
 
 def _mode(lines: list[OcrLine], result: OcrLine) -> str | None:
-    below = [l for l in lines if result.y + result.h <= l.y < result.y + result.h + 0.06 and l.x < 0.5]
-    if not below:
+    # under the title, which is on the left for a win and on the right for a defeat
+    below = [l for l in lines if result.y + result.h <= l.y < result.y + result.h + 0.06]
+    starts = [l for l in below if result.x - 0.1 <= l.x <= result.x + result.w]
+    if not starts:
         return None
-    first = min(below, key=lambda l: l.y)
-    same_row = sorted((l for l in below if abs(l.y - first.y) < 0.01), key=lambda l: l.x)
+    first = min(starts, key=lambda l: l.y)
+    same_row = sorted((l for l in below if abs(l.y - first.y) < 0.01 and abs(l.x - first.x) < 0.3),
+                      key=lambda l: l.x)
     return " ".join(l.text.strip() for l in same_row)
 
 
