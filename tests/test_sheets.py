@@ -362,3 +362,16 @@ def test_erudit_challenges_for_pistols_and_launchers():
     from trackcod.sheets import ERUDIT_CHALLENGES
     assert ERUDIT_CHALLENGES["Pistolet"][1] == "Tuer 20 joueurs par derrière"
     assert ERUDIT_CHALLENGES["Lanceur"][2] == "Éliminer 7 fois 10 joueurs dans une même partie"
+
+
+def test_header_count_still_trusted_after_the_known_name_is_read_again():
+    """Real session 14/11 (Cronen Osprey): 'ICHOR SOMBRE' read on screen, exactly the shipped name, raised its vote
+    from 1000 to 1001; the specials then looked unnamed and 'SPÉCIAL [2/3]' no longer marked Ichor sombre done."""
+    from trackcod.known_camos import KnownCamos
+    from trackcod.sheets import ApparenceCamo, ApparenceReading, apply_apparence, new_sheet, seed_specials
+    sheet = new_sheet("CRONEN OSPREY", "Fusil d'assaut")
+    seed_specials(sheet, KnownCamos.load().specials("CRONEN OSPREY"))
+    hovered = ApparenceCamo("ICHOR SOMBRE", "special", None, None, None, None, None, False, None)
+    apply_apparence(sheet, ApparenceReading([hovered], {"special": (2, 3)}, at=1.0, weapon="CRONEN OSPREY"))
+    specials = sorted((c for c in sheet.camos if c.section == "special"), key=lambda c: c.order)
+    assert [c.state for c in specials][:2] == ["done", "done"]

@@ -188,3 +188,13 @@ def test_whole_board_drops_junk_and_cleans_done_challenges():
     assert not any("COMP" in c.text.upper().split()[-1] for c in state.daily)
     assert [c.text.endswith("partie 2 fois.") for c in state.daily if c.text.startswith("Marquez")] == [True]
     assert not any("ï" in c.text or c.text.endswith("-") for c in state.daily)
+
+
+def test_junk_kept_by_an_older_version_is_gone_at_start_up(tmp_path):
+    """2.0.10 cleaned the list only on the next read of the panel: the junk stayed on screen until then."""
+    from trackcod.store import load_state, save_state
+    state = AppState(daily=[DailyChallenge("Faites 15 éliminations avec des mitraillettes. COMPÜÉTÉ", 15, 9, True),
+                            DailyChallenge("oarz_c1RL.eeZ .PÉElSPU;anl.J8. 23H", 8, 0, False)])
+    save_state(state, tmp_path / "s.json")
+    loaded = load_state(tmp_path / "s.json")
+    assert [(c.text, c.progress) for c in loaded.daily] == [("Faites 15 éliminations avec des mitraillettes.", 15)]

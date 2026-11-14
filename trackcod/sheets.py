@@ -215,6 +215,11 @@ def _merge_duplicates(sheet: WeaponSheet) -> None:
 KNOWN_VOTES = 1000  # a name from the shipped list always wins over OCR variants
 
 
+def _is_known(c: Camo) -> bool:
+    """Named from the shipped list: the screen reading that same name again adds votes on top (1000 -> 1001)."""
+    return any(v >= KNOWN_VOTES for v in c.name_votes.values())
+
+
 def _reset(c: Camo) -> None:
     c.name_votes, c.name_forms, c.name_fr = {}, {}, None
     c.state, c.progress, c.challenge_fr = "unknown", None, None
@@ -244,7 +249,7 @@ def seed_specials(sheet: WeaponSheet, known: list) -> None:
         if best is not None and best_score >= MATCH_SCORE:
             owners[i] = best
     for c in slots:
-        if c not in owners.values() and c.name_votes and KNOWN_VOTES not in c.name_votes.values():
+        if c not in owners.values() and c.name_votes and not _is_known(c):
             _reset(c)
     free = [c for c in slots if c not in owners.values()]
     for i, k in enumerate(known):
@@ -285,7 +290,7 @@ def _infer_done_from_count(sheet: WeaponSheet, section: str, done: int, total: i
     members = sorted((c for c in sheet.camos if c.section == section), key=lambda c: c.order)
     if not total or len(members) != total or done < 0:
         return
-    if section == "special" and not all(KNOWN_VOTES in c.name_votes.values() for c in members):
+    if section == "special" and not all(_is_known(c) for c in members):
         # specials not in the shipped list: slot order is reading order, not the game's -> count only
         if done == total:
             for c in members:
@@ -454,7 +459,7 @@ def apply_tile_locks(sheet: WeaponSheet, locks: dict[tuple[str, int], bool | Non
     Militaries are left to their count; specials only when their game order is known (shipped list)."""
     for section in ("special", "erudit"):
         members = sorted((c for c in sheet.camos if c.section == section), key=lambda c: c.order)
-        if section == "special" and not all(KNOWN_VOTES in c.name_votes.values() for c in members):
+        if section == "special" and not all(_is_known(c) for c in members):
             continue
         for i, c in enumerate(members, 1):
             if locks.get((section, i)) is True:

@@ -102,11 +102,7 @@ def _merge(state: AppState, board: DailyBoard, now: float) -> None:
         if read.progress is not None:
             known.progress = read.progress
         known.done = known.done or read.done
-    state.daily = [c for c in state.daily if _looks_like_challenge(c.text)]  # also junk kept by older versions
-    for c in state.daily:
-        c.text = _strip_complete(c.text)
-        if c.done and c.total:
-            c.progress = c.total  # a done challenge shows its full counter, not the last one read
+    tidy(state)
     if board.bonus is not None:
         state.daily_bonus = board.bonus
     if board.resets_in_s is not None:
@@ -114,6 +110,16 @@ def _merge(state: AppState, board: DailyBoard, now: float) -> None:
     elif expired:
         state.daily_resets_at = None
     state.daily_at = now
+
+
+def tidy(state: AppState) -> None:
+    """Drops junk kept as challenges (also by older versions, so it runs at start-up too), strips a 'COMPLÉTÉ'
+    stuck to a text, and shows a done challenge with its full counter."""
+    state.daily = [c for c in state.daily if _looks_like_challenge(c.text)]
+    for c in state.daily:
+        c.text = _strip_complete(c.text)
+        if c.done and c.total:
+            c.progress = c.total
 
 
 def apply_toast(state: AppState, toast: DailyToast | None) -> bool:

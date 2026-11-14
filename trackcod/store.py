@@ -100,6 +100,8 @@ def load_state(path: Path) -> AppState:
         state = _from_dict(data)
         if data.get("version") == 2:
             _relearn_specials(state)
+        from trackcod.daily import tidy
+        tidy(state)  # junk daily lines kept by 2.0.8/2.0.9
         return state
     except (ValueError, TypeError, KeyError, AttributeError):
         os.replace(path, path.with_name(path.name + ".bak"))
