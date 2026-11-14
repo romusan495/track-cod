@@ -11,6 +11,8 @@ import re
 import statistics
 from dataclasses import dataclass
 
+from rapidfuzz import fuzz
+
 from trackcod.readers.common import OcrLine, norm
 
 _BONUS = re.compile(r"TERMINEZ\s*(\d+)\s*DEFI")
@@ -68,22 +70,31 @@ def _paragraphs(lines: list[OcrLine], anchor: OcrLine) -> list[tuple[list[OcrLin
     h = statistics.median(l.h for l in aligned)
     paragraphs: list[list] = []
     last: OcrLine | None = None
-    for line in aligned:
+    for i, line in enumerate(aligned):
         text = norm(line.text)
-        if text.startswith("COMPLETE"):
+        if _is_complete(text):
             if paragraphs:
                 paragraphs[-1][1] = True
             last = None
             continue
-        if text.startswith("BONUS") or line.h > 1.2 * h or sum(c.isalpha() for c in text) < 3:
-            last = None  # title ('DÉFIS DU JOUR', bigger), labels, stray marks
+        # the title ('DÉFIS DU JOUR') is the topmost line and a bit bigger; a challenge line can also be read
+        # taller ('Faitfl2 élimination(s) peu après', console), so only a much bigger line elsewhere is skipped
+        title = line.h > (1.2 if i == 0 else 1.9) * h
+        if text.startswith("BONUS") or title or sum(c.isalpha() for c in text) < 3:
+            last = None  # title, labels, stray marks
             continue
-        if last is not None and line.y - last.y < 1.8 * h:
+        if last is not None and line.y - (last.y + last.h) < 0.9 * h:  # gap under the previous line
             paragraphs[-1][0].append(line)
         else:
             paragraphs.append([[line], False])
         last = line
     return [(p, done) for p, done in paragraphs]
+
+
+def _is_complete(text: str) -> bool:
+    """'COMPLÉTÉ' under a done challenge, also when read 'COMPÜÉTÉ' (console)."""
+    words = text.split()
+    return bool(words) and len(words) <= 2 and fuzz.ratio(words[0], "COMPLETE") >= 70
 
 
 def _total(text: str) -> int | None:
@@ -123,6 +134,9 @@ def read_daily(lines: list[OcrLine]) -> DailyBoard | None:
     bonus_counter = next((m for m in (_COUNTER.match(l.text) for l in lines
                                       if abs(l.y - anchor.y) < 0.05 and l.x > anchor.x) if m), None)
     bonus = (int(bonus_counter.group(1)), int(bonus_counter.group(2))) if bonus_counter else None
+    if any(_is_complete(norm(l.text)) for l in lines if abs(l.x - anchor.x) < _ALIGN and 0 < l.y - anchor.y < 0.06):
+        n = int(_BONUS.search(norm(anchor.text)).group(1))
+        bonus = (n, n)  # 'COMPLÉTÉ' under the bonus
     first = paragraphs[0][0][0].y if paragraphs else anchor.y
     timer = next((m for m in (_TIMER.search(norm(l.text)) for l in lines
                               if anchor.y - _MAX_SPAN < l.y < first and abs(l.x - anchor.x) < 0.15) if m), None)

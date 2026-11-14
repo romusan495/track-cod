@@ -51,3 +51,27 @@ def test_missing_elim_header_is_placed_between_score_and_morts():
     """Real session 13/11: the 'ÉLIM.' header was not read; the columns never move."""
     m = read_scoreboard(load("scoreboard_victoire_sans_entete_elim"), at=1000.0, weapon="VEL 46")
     assert m is not None and (m.kills, m.deaths, m.score, m.result) == (19, 19, 2410, "win")
+
+
+def test_console_summary_label_read_with_a_bracket():
+    """Console capture (Twitch, 13/11): the summary label reads 'ÉLIM. [ASSIST.'; the player is still found."""
+    from trackcod.readers.scoreboard import _player_name
+    assert _player_name(load("console_scoreboard_victoire")) == "Joueur1"
+
+
+def test_console_scoreboards_after_the_zoomed_row_pass():
+    """Real console end screens, as the live pipeline sees them (own highlighted row re-read zoomed x2)."""
+    win = read_scoreboard(load("console_scoreboard_victoire_zoom"), at=1.0, weapon=None)
+    assert (win.kills, win.deaths, win.score, win.result) == (20, 12, None, "win")  # "260" for 2600: dropped
+    loss = read_scoreboard(load("console_scoreboard_defaite_zoom"), at=1.0, weapon=None)
+    assert (loss.kills, loss.deaths, loss.score, loss.result) == (15, 14, 1915, "loss")
+
+
+def test_zoomed_row_replaces_the_first_read_of_that_row():
+    from trackcod.readers.scoreboard import replace_row
+    base = [OcrLine("Joueur1", 0.14, 0.664, 0.05, 0.02), OcrLine("28", 0.322, 0.664, 0.01, 0.02),
+            OcrLine("27", 0.322, 0.60, 0.01, 0.02), OcrLine("Autre", 0.6, 0.664, 0.05, 0.02)]
+    zoom = [OcrLine("20", 0.321, 0.665, 0.01, 0.02)]
+    out = replace_row(base, zoom, (0.08, 0.645, 0.47, 0.686))
+    texts = {l.text for l in out}
+    assert "28" not in texts and {"20", "27", "Autre", "Joueur1"} <= texts

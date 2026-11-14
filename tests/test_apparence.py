@@ -192,3 +192,15 @@ def test_running_text_is_not_a_name():
              OcrLine("btenez 27 armets supplémentaireff frllisant R'zi 12", .40, .52, .30, .045),
              OcrLine(f"{SECTION_MARK}special", 0, 0, 0, 0)] + [OcrLine("PIVOTER", .728, .952, .03, .013)] * 4
     assert read_apparence(lines, 1.0).camos[0].name_fr == "OR NOIR"
+
+
+def test_challenge_worded_eliminez_is_read():
+    """Real session 14/11 (Cronen Osprey): the game now writes 'Éliminez 20 joueur(s) au tir au jugé.' instead
+    of 'Faites ...': the challenge and its 2/20 were dropped, so the camo stayed 'locked'."""
+    r = read_apparence(load("apparence_osprey_eliminez"), at=1.0)
+    c = r.camos[0]
+    assert r.weapon == "CRONEN OSPREY"
+    assert c.section == "special"
+    assert c.challenge_fr.startswith("Éliminez 20")
+    assert c.progress == (2, 20)
+    assert c.access_met is True and not c.locked

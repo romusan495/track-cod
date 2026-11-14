@@ -45,8 +45,11 @@ def _strip_icons(text: str) -> str:
     return " ".join(parts)
 
 
+_CHALLENGE_VERBS = ("FAITES", "ELIMINEZ")  # the game writes both: 'Faites 50 éliminations...', 'Éliminez 20 joueur(s)...'
+
+
 def _is_challenge(line: OcrLine) -> bool:
-    return norm(_strip_icons(line.text)).startswith("FAITES")
+    return norm(_strip_icons(line.text)).startswith(_CHALLENGE_VERBS)
 
 
 def _merge(groups: list[list[OcrLine]]) -> list[OcrLine]:
@@ -175,7 +178,7 @@ def _section_counts(lines: list[OcrLine]) -> dict[str, tuple[int, int]]:
     return counts
 
 
-_NOT_NAMES = ("ID", "OBTENEZ", "FAITES", "PROGRESSION")
+_NOT_NAMES = ("ID", "OBTENEZ", *_CHALLENGE_VERBS, "PROGRESSION")
 
 
 def _looks_like_title(text: str) -> bool:

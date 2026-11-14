@@ -148,3 +148,14 @@ def test_a_frame_caught_mid_animation_never_wipes_the_list():
                           DailyRead("tour", None, None, False)], None, None)
     merge_board(s, sliding, now=101.0)
     assert [c.text[:9] for c in s.daily] == ["Faites 2 ", "Faites 5 ", "Révélez 2", "Marquez a"]
+
+
+def test_console_daily_panel():
+    """Console capture (Twitch, 13/11): panel on the right, 'COMPLÉTÉ' read 'COMPÜÉTÉ', one line taller than the
+    others ('Faitfl2 élimination(s) peu après'), bonus done."""
+    board = read_daily(load("console_defis_du_jour"))
+    assert [c.total for c in board.challenges] == [3, 2, 5, 30]
+    assert [c.done for c in board.challenges][:3] == [True, True, True]
+    assert board.challenges[1].text.startswith("Faitfl2 élimination(s) peu après av")
+    assert "COMP" not in board.challenges[0].text
+    assert board.bonus == (3, 3) and board.resets_in_s == 12 * 3600 + 31 * 60
