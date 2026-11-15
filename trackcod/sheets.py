@@ -328,7 +328,8 @@ def apply_apparence(sheet: WeaponSheet, reading: ApparenceReading, weapon_confir
             continue
         if camo.section != "military":
             _vote(camo, read.name_reads)
-        camo.access_text = read.access_text or camo.access_text
+        if better_condition(read.access_text, camo.access_text):
+            camo.access_text = read.access_text
         if read.access_met is not None:
             camo.access_met = read.access_met
         camo.access_progress = read.access_progress
@@ -431,6 +432,13 @@ def items_left(access_text: str | None) -> int | None:
     """'Obtenez 10 arme(s) supplémentaire(s)...' -> 10 (items still to unlock, as the game counts them)."""
     m = _ITEMS.search(norm(access_text or ""))
     return int(m.group(1)) if m else None
+
+
+def better_condition(new: str | None, old: str | None) -> bool:
+    """A new condition text replaces the old one unless it lost the count the old one had (a garbled read)."""
+    if new is None:
+        return False
+    return old is None or items_left(new) is not None or items_left(old) is None
 
 
 def camo_items_left(c: Camo) -> int | None:

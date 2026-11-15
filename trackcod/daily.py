@@ -8,7 +8,7 @@ from rapidfuzz import fuzz
 
 from trackcod.model import AppState, DailyChallenge
 from trackcod.readers.common import norm
-from trackcod.readers.daily import DailyBoard, DailyToast
+from trackcod.readers.daily import DailyBoard, DailyToast, numbers
 
 _MATCH = 85
 
@@ -23,7 +23,7 @@ def _score(a: str, b: str) -> float:
     SENSORIELLE OU UN DRONE DE' is 'REVELEZ 2 ENNEMI S AVEC UNE GRENADE ...'), unless a number differs
     ('FAITES 2 ...' and 'FAITES 5 ...' are two challenges)."""
     score = fuzz.partial_ratio(a, b)
-    nums_a, nums_b = set(re.findall(r"\d+", a)), set(re.findall(r"\d+", b))
+    nums_a, nums_b = set(numbers(a)), set(numbers(b))
     if nums_a and nums_b and not nums_a & nums_b:
         return min(score, _MATCH - 1)
     words_a, words_b = set(re.findall(r"[A-Z]{4,}", a)), set(re.findall(r"[A-Z]{4,}", b))
@@ -115,7 +115,20 @@ def _merge(state: AppState, board: DailyBoard, now: float) -> None:
 def tidy(state: AppState) -> None:
     """Drops junk kept as challenges (also by older versions, so it runs at start-up too), strips a 'COMPLÉTÉ'
     stuck to a text, and shows a done challenge with its full counter."""
-    state.daily = [c for c in state.daily if _looks_like_challenge(c.text)]
+    kept: list[DailyChallenge] = []
+    for c in state.daily:
+        if not _looks_like_challenge(c.text):
+            continue
+        twin = _find(kept, c.text)  # the same challenge read twice ('raites d ellrnnatlor11sJ...', 15/11)
+        if twin is None:
+            kept.append(c)
+            continue
+        if _noise(c.text) < _noise(twin.text):
+            twin.text = c.text
+        twin.done = twin.done or c.done
+        if c.progress is not None and (twin.progress is None or c.progress > twin.progress):
+            twin.progress = c.progress
+    state.daily = kept
     for c in state.daily:
         c.text = _strip_complete(c.text)
         if c.done and c.total:

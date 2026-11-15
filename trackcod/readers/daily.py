@@ -19,7 +19,6 @@ _BONUS = re.compile(r"TERMINEZ\s*(\d+)\s*DEFI")
 _COUNTER = re.compile(r"^\s*(\d+)\s*/\s*(\d+)\s*$")
 _TIMER = re.compile(r"(\d{1,2})\s*H\s*(\d{1,2})\s*M\b")
 _TIMES = re.compile(r"(\d+)\s*FOIS")
-_FIRST_NUMBER = re.compile(r"\d+")
 _BAR = "§BARRE:"
 _ALIGN = 0.008          # challenge lines share the left edge of the bonus line
 _MAX_SPAN = 0.6         # the list never goes higher than this above the bonus line
@@ -105,10 +104,25 @@ def _is_complete(text: str) -> bool:
             and max(fuzz.ratio(words[0], "COMPLETE"), fuzz.ratio("".join(words), "COMPLETE")) >= 70)
 
 
+def numbers(text: str) -> list[str]:
+    """Numbers of a challenge, without the ones inside letters ('ellrnnatlor11sJ', 15/11: OCR noise); a number
+    after letters only ('Faitfl2 élimination(s)') is kept."""
+    out = []
+    for m in re.finditer(r"\d+", text):
+        before = text[m.start() - 1] if m.start() > 0 else " "
+        after = text[m.end()] if m.end() < len(text) else " "
+        if not (before.isalpha() and after.isalpha()):
+            out.append(m.group(0))
+    return out
+
+
 def _total(text: str) -> int | None:
     t = norm(text)
-    m = _TIMES.search(t) or _FIRST_NUMBER.search(t)
-    return int(m.group(1) if m.re is _TIMES else m.group(0)) if m else None
+    m = _TIMES.search(t)
+    if m:
+        return int(m.group(1))
+    found = numbers(t)
+    return int(found[0]) if found else None
 
 
 def _below(lines: list[OcrLine], para: list[OcrLine], until: float) -> list[OcrLine]:

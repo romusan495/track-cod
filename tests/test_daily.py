@@ -198,3 +198,33 @@ def test_junk_kept_by_an_older_version_is_gone_at_start_up(tmp_path):
     save_state(state, tmp_path / "s.json")
     loaded = load_state(tmp_path / "s.json")
     assert [(c.text, c.progress) for c in loaded.daily] == [("Faites 15 éliminations avec des mitraillettes.", 15)]
+
+
+def test_number_glued_to_garbled_letters_is_not_another_challenge():
+    """Real session 15/11: 'raites d ellrnnatlor11sJ avec aes fusils tactiques sans subir de' (the '11' glued to
+    letters) became a fifth challenge next to 'Faites 2 élimination(s) avec des fusils tactiques sans subir de'."""
+    from trackcod.readers.daily import DailyBoard, DailyRead
+    s = AppState()
+    first = [DailyRead("Faites 2 élimination(s) avec des fusils tactiques sans subir de", 2, 0, False),
+             DailyRead("Abattez 2 drone(s).", 2, 0, False), DailyRead("Faites 30 éliminations.", 30, 0, False),
+             DailyRead("Faites 15 élimination(s) en regardant dans le viseur.", 15, 0, False)]
+    merge_board(s, DailyBoard(first, None, None), now=100.0)
+    garbled = DailyRead("raites d ellrnnatlor11sJ avec aes fusils tactiques sans subir de", 11, None, False)
+    merge_board(s, DailyBoard([garbled] + first[1:], None, None), now=200.0)
+    assert len(s.daily) == 4
+
+
+def test_total_ignores_a_number_glued_to_letters():
+    from trackcod.readers.daily import _total
+    assert _total("raites d ellrnnatlor11sJ avec aes fusils tactiques") is None
+    assert _total("Faites 2 élimination(s) avec des fusils tactiques") == 2
+
+
+def test_duplicate_kept_by_an_older_version_is_merged_at_start_up(tmp_path):
+    from trackcod.store import load_state, save_state
+    state = AppState(daily=[
+        DailyChallenge("Faites 2 élimination(s) avec des fusils tactiques sans subir de", 2, 0, False),
+        DailyChallenge("Abattez 2 drone(s).", 2, 0, False),
+        DailyChallenge("raites d ellrnnatlor11sJ avec aes fusils tactiques sans subir de", 11, None, False)])
+    save_state(state, tmp_path / "s.json")
+    assert [c.text[:6] for c in load_state(tmp_path / "s.json").daily] == ["Faites", "Abatte"]

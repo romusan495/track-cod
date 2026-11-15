@@ -271,3 +271,28 @@ def test_item_counts_for_the_weapon_named_on_the_banner(tmp_path, registry):
     e, clock = _engine(tmp_path, registry, [banner, OTHER])
     _run(e, clock, 2)
     assert _special(e.state.sheets["REZI 12"], "Or noir").items_left == 2
+
+
+def test_garbled_condition_never_replaces_a_readable_one():
+    """Real session 15/11 (MAR-9): 'Obtenez 8 arme(s) supplémentaire(s)...' read well, then 'Obtenez batifiüs) supp e'
+    on a later frame of the same visit: the tracker showed the garbled text instead of 'encore 8 accessoires'."""
+    from trackcod.readers.apparence import HoverTracker
+    good = ApparenceCamo("MANGROVE", "special", "Obtenez 8 armets) supplémentaire[s) en utilisant : MAR-9", False,
+                         None, None, None, True, None)
+    bad = ApparenceCamo("MANGROVE", "special", "Obtenez batifiüs) supp e", False, None, None, None, True, None)
+    hover = HoverTracker()
+    for camo in (good, bad):
+        hover.feed(ApparenceReading([camo], {}, at=1.0, weapon="MAR-9"))
+    read = hover.finish().camos[0]
+    assert items_left(read.access_text) == 8
+
+
+def test_garbled_condition_on_a_later_visit_keeps_the_count():
+    s = _rezi()
+    good = ApparenceCamo("OR NOIR", "special", "Obtenez 8 armets) supplémentaire[s) en utilisant : REZI 12", False,
+                         None, None, None, True, None)
+    bad = ApparenceCamo("OR NOIR", "special", "Obtenez u ârhéts Slipp", False, None, None, None, True, None)
+    for camo in (good, bad):
+        apply_apparence(s, ApparenceReading([camo], {}, at=1.0, weapon="REZI 12"))
+    c = _special(s, "Or noir")
+    assert c.items_left == 8 and items_left(c.access_text) == 8

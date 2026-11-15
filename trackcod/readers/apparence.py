@@ -12,7 +12,7 @@ from rapidfuzz import fuzz
 
 from trackcod.readers.classify import header_section
 from trackcod.readers.common import OcrLine, norm
-from trackcod.sheets import ERUDIT, ApparenceCamo, ApparenceReading
+from trackcod.sheets import ERUDIT, ApparenceCamo, ApparenceReading, better_condition
 
 _COUNTER = re.compile(r"(?<![\[\d])(\d{1,4})\s*/\s*(\d{1,4})(?![\]\d])")
 _SECTION_COUNT = re.compile(r"[\[(|lI]?\s*([0-9AEOUQD])\s*/\s*(\d)")
@@ -339,6 +339,8 @@ class HoverTracker:
             old.name_reads.extend(new.name_reads)
             for field in ("access_text", "access_met", "access_progress", "challenge_fr", "progress"):
                 value = getattr(new, field)
+                if field == "access_text" and not better_condition(value, old.access_text):
+                    continue  # 'Obtenez batifiüs) supp e' after 'Obtenez 8 arme(s)...' (15/11)
                 if value is not None:
                     setattr(old, field, value)
             old.locked = old.progress is None and old.access_met is False
