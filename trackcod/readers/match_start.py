@@ -4,7 +4,10 @@ The primary weapon line ('Mitraillette - ISO Nightshade') is small pale-green te
 map preview, so it gets its own colour-filtered OCR pass.
 """
 
+import re
+
 from PIL import Image, ImageChops
+from rapidfuzz import fuzz
 
 from trackcod.weapons import WeaponRegistry
 from trackcod.readers.common import OcrLine, norm
@@ -124,5 +127,34 @@ def read_match_info(lines: list[OcrLine]) -> tuple[str | None, str | None]:
     if mode is None:
         return None, None
     below = [l for l in top if mode.y < l.y < mode.y + 0.08 and sum(c.isalpha() for c in l.text) >= 3]
-    game_map = min(below, key=lambda l: l.y).text.strip() if below else None
+    game_map = map_name(min(below, key=lambda l: l.y).text, mode.text) if below else None
     return mode.text.strip(), game_map
+
+
+_MODE = "MATCH A MORT PAR EQUIPE HARDCORE"
+
+
+_MODE_WORDS = ("MATCH", "MORT", "EQUIPE", "HARDCORE", "DOMINATION", "RECHERCHE", "DESTRUCTION", "MELEE",
+               "GENERALE", "ELIMINATION", "CONFIRMEE", "STRATEGIQUE", "CONTROLE", "ESCARMOUCHE", "ARMES",
+               "SIEGE", "INFECTE", "CAPTURE", "DRAPEAU", "GUERRE", "FUSILLADE", "ESCORTE", "CHACUN", "QUARTIER")
+
+
+def is_game_mode(text: str | None) -> bool:
+    """A game mode ('MATCH À MORT PAR ÉQUIPE HARDCORE', even cut: 'PAR ÉQUIPE HARDCORÉ', or 'DOMINATION'...),
+    not a class menu header ('VERSION CRÉÉE')."""
+    words = re.findall(r"[A-Z]{4,}", norm(text or ""))
+    return any(fuzz.ratio(w, m) >= 80 for w in words for m in _MODE_WORDS)
+
+
+def map_name(text: str, mode: str = "") -> str | None:
+    """A map name as shown (capitals), or None for what is not one (14-15/11): a piece of the mode wrapped
+    under it ('OCORE', 'AROCORE' for HARDCORE, 'MATCH'), the lobby message, a weapon line in small letters.
+    Stray marks around it go ('.BACKSTAB')."""
+    name = re.sub(r"^\W+|\W+$", "", text.strip())
+    if any(c.islower() for c in name) or sum(c.isalpha() for c in name) < 3:
+        return None
+    squeezed = norm(name).replace(" ", "")
+    for words in (_MODE, norm(mode)):
+        if words and fuzz.partial_ratio(squeezed, words.replace(" ", "")) >= 75:
+            return None
+    return name

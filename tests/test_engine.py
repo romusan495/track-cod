@@ -298,3 +298,36 @@ def test_same_match_read_again_without_its_score_counts_once(env):
     _run(e, clock, 3, dt=6.0)
     assert e.state.global_stats.games == 1
     assert len((tmp / "matches.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_map_is_the_one_read_most_on_the_class_screen(env):
+    """Real session 15/11: the last class-screen frame decided the map, so one frame without it (or with a
+    piece of the mode) lost it: 3 matches of 8 had no map, others 'OCORE'."""
+    make, frames, clock, _ = env
+    e = make()
+    no_map = [l for l in load("match_start_iso") if l.text != "LITHIUM"]
+    frames.extend([load("match_start_iso"), load("match_start_iso"), no_map, load("scoreboard_victoire")])
+    _run(e, clock, 4)
+    assert e.state.last_match.map == "LITHIUM"
+
+
+def test_map_read_on_a_class_screen_counts_too(env):
+    """Real session 14/11: 'CHOISIR LA CLASSE' was not read, the screen passed as a class screen, and 'LOTUS'
+    shown in its corner was never used: the match had no map."""
+    make, frames, clock, _ = env
+    e = make()
+    class_screen = [l for l in load("match_start_iso") if "CHOISIR" not in l.text]
+    frames.extend([class_screen, class_screen, load("scoreboard_victoire")])
+    _run(e, clock, 3)
+    assert e.state.last_match.map == "LITHIUM"
+
+
+def test_map_tie_goes_to_the_latest_read(env):
+    """Real session 14/11: 'CACHET TF' (screen still moving) then 'CACHETTE', one read each."""
+    make, frames, clock, _ = env
+    e = make()
+    iso = load("match_start_iso")
+    with_map = lambda name: [OcrLine(name, l.x, l.y, l.w, l.h) if l.text == "LITHIUM" else l for l in iso]
+    frames.extend([with_map("CACHET TF"), with_map("CACHETTE"), load("scoreboard_victoire")])
+    _run(e, clock, 3)
+    assert e.state.last_match.map == "CACHETTE"

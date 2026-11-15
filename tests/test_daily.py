@@ -228,3 +228,59 @@ def test_duplicate_kept_by_an_older_version_is_merged_at_start_up(tmp_path):
         DailyChallenge("raites d ellrnnatlor11sJ avec aes fusils tactiques sans subir de", 11, None, False)])
     save_state(state, tmp_path / "s.json")
     assert [c.text[:6] for c in load_state(tmp_path / "s.json").daily] == ["Faites", "Abatte"]
+
+
+# ----- real session 15/11: the panel beside the lobby -----
+
+def test_lobby_counters_are_not_challenge_counters():
+    """The lobby's '12/12' and '2/20' (players in the lobby/party), far right, were read as challenge counters:
+    'Faites 2 élimination(s)...' showed 12/12, then 2/20."""
+    board = read_daily(load("defis_salon_compteur_du_salon"))
+    tactical = next(c for c in board.challenges if "tactiques" in c.text)
+    assert (tactical.total, tactical.progress, tactical.done) == (2, 2, True)
+    assert all(c.total not in (12, 20) for c in read_daily(load("defis_panneau_debut_coupe")).challenges)
+
+
+def test_garbled_timer_title_is_not_a_challenge():
+    """'DÉFIS DU JOUR 23H 17M' read '•PFFF.PUAB• 17M' became a fifth challenge 'out of 17'."""
+    board = read_daily(load("defis_panneau_minuteur_parasite"))
+    assert [c.text[:6] for c in board.challenges] == ["Faites", "Faites", "Abatte", "Faites"]
+    s = AppState()
+    merge_board(s, board, now=100.0)
+    assert len(s.daily) == 4
+
+
+def test_lost_zero_of_a_goal_is_the_same_challenge():
+    """The game's slashed zero: 'Faites 30 éliminations.' read 'Faites 3 éliminations.' (even '3/3'), which
+    became another challenge, and the 30 one showed out of 3."""
+    from trackcod.readers.daily import DailyBoard, DailyRead
+    s = AppState()
+    merge_board(s, read_daily(load("defis_panneau_minuteur_parasite")), now=100.0)
+    merge_board(s, read_daily(load("defis_panneau_chiffre_perdu")), now=200.0)
+    merge_board(s, DailyBoard([DailyRead("Faites 3, ,éliminations.", 3, 0, False)], None, None), now=300.0)
+    assert len(s.daily) == 4
+    assert next(c for c in s.daily if "30" in c.text).total == 30
+
+
+def test_never_more_than_four_daily_challenges(tmp_path):
+    """The game gives 4 challenges a day; the 15/11 session ended with 6 in the window."""
+    from trackcod.store import load_state, save_state
+    state = AppState(daily=[
+        DailyChallenge("Faites 3, ,éliminations.", 2, 0, False), DailyChallenge("Abattez 2 drone[s).", 2, 0, False),
+        DailyChallenge("Faites 30 éliminations...", 30, 0, False), DailyChallenge("•PFFF.PUAB• 17M", 17, 0, False),
+        DailyChallenge(",Faites 15 élimination[s) en regardant dans le viseur.", 15, 0, False),
+        DailyChallenge("Faites 2 élimination[s) avec des fusils tactiques sans subir de", 2, 0, False)])
+    save_state(state, tmp_path / "s.json")
+    texts = [c.text for c in load_state(tmp_path / "s.json").daily]
+    assert len(texts) == 4 and not any("PFFF" in t for t in texts)
+    assert sum("30" in t or "Faites 3," in t for t in texts) == 1
+
+
+def test_garbled_read_never_changes_the_goal_of_a_known_challenge():
+    """Real session 14/11: 'Marquez au moins 1000 points au cours d'une même partie 2 fois.' (goal 2) was read
+    without 'fois' ('... ausw F cours d'une même pa'), its goal became 1000 and its bar gave 722/1000."""
+    from trackcod.readers.daily import DailyBoard, DailyRead
+    s = AppState(daily=[DailyChallenge("Marquez au moins 1000 points au cours d'une même partie 2 fois.", 2, 0, False)])
+    merge_board(s, DailyBoard([DailyRead("Marquez au moins 1000 points ausw F cours d'une même pa", 1000, 722, False)],
+                              None, None), now=100.0)
+    assert (s.daily[0].total, s.daily[0].progress, s.daily[0].done) == (2, 1, False)

@@ -58,3 +58,28 @@ def test_ocr_match_start_end_to_end(registry):
     from trackcod.ocr.engine import ocr_image
     base = ocr_image(img)
     assert read_match_start(base + ocr_match_start(img, base), registry) == "ISO NIGHTSHADE"
+
+
+def _with_map(text):
+    lines = load("match_start_iso")
+    return [OcrLine(text, l.x, l.y, l.w, l.h) if l.text == "LITHIUM" else l for l in lines]
+
+
+def test_map_is_never_a_piece_of_the_mode():
+    """Real sessions 14-15/11: 'HARDCORE' wrapped under the mode was taken for the map ('OCORE', 'AROCORE',
+    'HARDCOR', 'MATCH'), so were the lobby message and stray marks ('.BACKSTAB')."""
+    for junk in ("OCORE", "AROCORE", "A OCORE", "HARDCOR", "MATCH", "MATCH MORT",
+                 "Vous attendez de pouvoir rejoindre le salon.", "Fusil tactique - Multi"):
+        assert read_match_info(_with_map(junk))[1] is None, junk
+    assert read_match_info(_with_map(".BACKSTAB"))[1] == "BACKSTAB"
+    assert read_match_info(_with_map("-CANYON"))[1] == "CANYON"
+    assert read_match_info(_with_map("REACTOR 092"))[1] == "REACTOR 092"
+
+
+def test_game_modes_are_told_from_class_menus():
+    from trackcod.readers.match_start import is_game_mode
+    for mode in ("MATCH À MORT PAR ÉQUIPE HARDCORE", "PAR ÉQUIPE HARDCORÉ", "H À ÉQUIPE HARDCORÉ", "DOMINATION",
+                 "RECHERCHE ET DESTRUCTION", "MÊLÉE GÉNÉRALE", "POINT STRATÉGIQUE"):
+        assert is_game_mode(mode), mode
+    for menu in ("VERSION CRÉÉE", "RÉCOMPENSES BONUS", "JETONS DISPONIBLES", None):
+        assert not is_game_mode(menu), menu

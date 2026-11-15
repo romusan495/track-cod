@@ -57,7 +57,9 @@ def own_row_band(lines: list[OcrLine]) -> tuple[float, float, float, float] | No
 def replace_row(base: list[OcrLine], zoom: list[OcrLine], band: tuple[float, float, float, float]) -> list[OcrLine]:
     x0, y0, x1, y1 = band
     inside = lambda l: x0 <= l.x <= x1 and y0 <= l.y <= y1 and not any(c.isalpha() for c in l.text)
-    return [l for l in base if not inside(l)] + zoom  # the numbers of the row are replaced, the name stays
+    reread = lambda l: any(abs(z.x - l.x) < _COLUMN_TOLERANCE for z in zoom)
+    # the numbers of the row are replaced, the name stays; a number the zoom lost ('5', 14/11) stays too
+    return zoom + [l for l in base if not (inside(l) and reread(l))]  # zoom first: its reads win
 
 
 def ocr_own_row(img, base: list[OcrLine]) -> list[OcrLine]:

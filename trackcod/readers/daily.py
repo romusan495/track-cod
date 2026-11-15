@@ -19,6 +19,8 @@ _BONUS = re.compile(r"TERMINEZ\s*(\d+)\s*DEFI")
 _COUNTER = re.compile(r"^\s*(\d+)\s*/\s*(\d+)\s*$")
 _TIMER = re.compile(r"(\d{1,2})\s*H\s*(\d{1,2})\s*M\b")
 _TIMES = re.compile(r"(\d+)\s*FOIS")
+_TIMER_END = re.compile(r"\d{1,2}\s?[HM]\s*$")  # raw text: the title's timer garbled ('•PFFF.PUAB• 17M', 15/11)
+_PANEL_SPAN = 1.5   # counters sit within 1.5 text widths of the list; the lobby's '12/12' is far beyond
 _BAR = "§BARRE:"
 _ALIGN = 0.008          # challenge lines share the left edge of the bonus line
 _MAX_SPAN = 0.6         # the list never goes higher than this above the bonus line
@@ -78,7 +80,7 @@ def _paragraphs(lines: list[OcrLine], anchor: OcrLine) -> list[tuple[list[OcrLin
             continue
         # the title ('DÉFIS DU JOUR') is the topmost line and a bit bigger; a challenge line can also be read
         # taller ('Faitfl2 élimination(s) peu après', console), so only a much bigger line elsewhere is skipped
-        title = line.h > (1.2 if i == 0 else 1.9) * h or _is_title(text)
+        title = line.h > (1.2 if i == 0 else 1.9) * h or _is_title(text) or bool(_TIMER_END.search(line.text))
         tiny = line.h < 0.6 * h  # a small label above the panel ('owz_cTRL.eez', 14/11)
         if text.startswith("BONUS") or title or tiny or sum(c.isalpha() for c in text) < 3:
             last = None  # title, labels, stray marks
@@ -135,13 +137,16 @@ def read_daily(lines: list[OcrLine]) -> DailyBoard | None:
     if anchor is None:
         return None
     paragraphs = _paragraphs(lines, anchor)
+    width = max((l.w for para, _ in paragraphs for l in para), default=0.1)
+    right = anchor.x + _PANEL_SPAN * width  # the lobby beside the panel shows its own 'n/m' (15/11)
     challenges: list[DailyRead] = []
     for i, (para, done) in enumerate(paragraphs):
         nxt = paragraphs[i + 1][0][0].y if i + 1 < len(paragraphs) else anchor.y
         near = _below(lines, para, nxt - 0.005)
         text = " ".join(l.text.strip() for l in para)
         total = _total(text)
-        counter = next((m for m in (_COUNTER.match(l.text) for l in near if l.x > anchor.x + 0.03) if m), None)
+        counter = next((m for m in (_COUNTER.match(l.text) for l in near if anchor.x + 0.03 < l.x < right)
+                        if m and int(m.group(1)) <= int(m.group(2))), None)
         bar = next((float(l.text[len(_BAR):]) for l in near if l.text.startswith(_BAR)), None)
         progress = None
         if counter is not None:
@@ -154,7 +159,7 @@ def read_daily(lines: list[OcrLine]) -> DailyBoard | None:
             done = True
         challenges.append(DailyRead(text, total, progress, done))
     bonus_counter = next((m for m in (_COUNTER.match(l.text) for l in lines
-                                      if abs(l.y - anchor.y) < 0.05 and l.x > anchor.x) if m), None)
+                                      if abs(l.y - anchor.y) < 0.05 and anchor.x < l.x < right) if m), None)
     bonus = (int(bonus_counter.group(1)), int(bonus_counter.group(2))) if bonus_counter else None
     if any(_is_complete(norm(l.text)) for l in lines if abs(l.x - anchor.x) < _ALIGN and 0 < l.y - anchor.y < 0.06):
         n = int(_BONUS.search(norm(anchor.text)).group(1))

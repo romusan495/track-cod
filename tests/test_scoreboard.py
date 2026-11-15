@@ -84,3 +84,15 @@ def test_defeat_title_on_the_right_with_a_mark():
     assert m is not None
     assert (m.kills, m.deaths, m.score, m.result) == (29, 17, 3915, "loss")
     assert m.mode == "MATCH À MORT PAR EQUIPE HARDCORE" or "MORT PAR EQUIPE HARDCORE" in m.mode
+
+
+def test_zoomed_row_keeps_a_number_it_did_not_read_again():
+    """Real session 14/11 (defeat 5/21): the zoomed pass read '705' and '21' but lost the lone '5' of the
+    kills column; the first read had it, and the match was dropped."""
+    from trackcod.readers.scoreboard import replace_row
+    base = [OcrLine("[HnDa]Romusan", 0.229, 0.741, 0.06, 0.018), OcrLine("705", 0.320, 0.744, 0.01, 0.013),
+            OcrLine("5", 0.364, 0.744, 0.004, 0.013), OcrLine("2", 0.408, 0.744, 0.004, 0.013),
+            OcrLine("21", 0.452, 0.744, 0.008, 0.013)]
+    zoom = [OcrLine("705", 0.320, 0.744, 0.01, 0.013), OcrLine("21", 0.452, 0.744, 0.008, 0.013)]
+    out = replace_row(base, zoom, (0.162, 0.72, 0.493, 0.772))
+    assert sorted(l.text for l in out if l.text.isdigit()) == ["2", "21", "5", "705"]

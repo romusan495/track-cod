@@ -15,7 +15,8 @@ from trackcod.readers.apparence import HoverTracker, read_apparence
 from trackcod.readers.classify import classify
 from trackcod.readers.combat_record import read_combat_record
 from trackcod.readers.common import OcrLine, norm
-from trackcod.readers.match_start import read_breadcrumb, read_match_info, read_match_start, read_weapon_title
+from trackcod.readers.match_start import (is_game_mode, read_breadcrumb, read_match_info, read_match_start,
+                                          read_weapon_title)
 from trackcod.readers.scoreboard import read_scoreboard
 from trackcod.known_camos import KnownCamos
 from trackcod.readers.challenge_done import challenge_fits
@@ -37,6 +38,7 @@ STEP_INTERVAL_S = 1.0
 APPARENCE_INTERVAL_S = 0.1
 APPARENCE_VISIT_END_S = 3.0
 SAME_MATCH_WINDOW_S = 300.0
+MAP_FORGET_S = 900.0      # map reads older than this (no class screen since) belong to an unrecorded match
 def same_card(a: str, b: str) -> bool:
     """Two reads of a card still on screen, with different OCR junk ('MUNITIONS PERFORANTES X 30 MM PART SRY' /
     'ADMINISTRATIF MUNITIONS PERFORANTES X INJ'): the real words are shared, and no number differs
@@ -48,6 +50,16 @@ def same_card(a: str, b: str) -> bool:
         return False
     shared = wa & wb
     return len(shared) >= 2 and len(shared) >= 0.5 * min(len(wa), len(wb))
+
+
+def share_word(a: str, b: str) -> bool:
+    """A card still on screen, its name read shorter or with other junk ('CANON RV B V2' / 'CANON RV B N L SRS',
+    'V46 VERT TAC' / 'VERT TAC XU', 15/11): a word of 4 letters or more in common, and no number that differs."""
+    words = lambda s: set(re.findall(r"[A-Z]{4,}", norm(s)))
+    nums = lambda s: set(re.findall(r"(?<![A-Z0-9])\d{2,}(?![A-Z0-9])", norm(s)))
+    if nums(a) and nums(b) and not nums(a) & nums(b):
+        return False
+    return bool(words(a) & words(b))
 
 
 BANNER_CONFIRM_S =8.0   # 'DÉBLOQUÉ' must follow the banner within this delay
@@ -76,7 +88,8 @@ class Engine:
         self.clock = clock
         self.hover = HoverTracker()
         self._last_apparence = 0.0
-        self._current_map: str | None = None
+        self._map_votes: dict[str, tuple[int, float]] = {}  # map read on this match's class screens: (reads, last)
+        self._map_at = -1e9
         self._scoreboard_seen_at = state.last_match.at if state.last_match else 0.0
         self.lock = threading.Lock()
         self._banner: tuple | None = None          # (BannerRead, seen_at) waiting for 'DÉBLOQUÉ'
@@ -190,7 +203,8 @@ class Engine:
         if unlock.item:
             same = next((i for i, (t, _) in enumerate(self._items_seen)
                          if fuzz.ratio(t, unlock.item) >= 75
-                         or (gap <= ITEM_GAP_S and same_card(t, unlock.item))), None)
+                         or (gap <= ITEM_GAP_S and (same_card(t, unlock.item) or share_word(t, unlock.item)))),
+                        None)
             if same is not None:
                 self._items_seen[same] = (self._items_seen[same][0], now)
                 return False
@@ -236,6 +250,16 @@ class Engine:
             except OSError as e:
                 log.warning("vignettes non enregistrées : %s", e)
         return True
+
+    def _vote_map(self, lines: list[OcrLine], now: float) -> None:
+        """The map in the corner of the class screens of a match; the most read one is kept for the match."""
+        mode, game_map = read_match_info(lines)
+        if not game_map or not is_game_mode(mode):
+            return  # a class menu outside a match ('VERSION CRÉÉE')
+        if now - self._map_at > MAP_FORGET_S:
+            self._map_votes = {}  # an older match that was never recorded
+        self._map_votes[game_map] = (self._map_votes.get(game_map, (0, 0.0))[0] + 1, now)
+        self._map_at = now
 
     def _read_level(self, lines: list[OcrLine]) -> bool:
         level = read_player_level(lines)
@@ -284,7 +308,7 @@ class Engine:
             return changed
         if kind == "match_start":
             weapon = read_match_start(lines, self.registry)
-            _, self._current_map = read_match_info(lines)
+            self._vote_map(lines, now)
             if weapon is None or (weapon == self.state.weapon and self.state.phase == "in_match"):
                 return False
             self.state.weapon, self.state.phase, self.state.phase_at = weapon, "in_match", now
@@ -294,9 +318,11 @@ class Engine:
             m = read_scoreboard(lines, now, self.state.weapon)
             if m is None or self._is_same_match(m):
                 return False
-            m.map = self._current_map
+            # the most read; on a tie the latest, read once the screen stopped moving ('CACHET TF' / 'CACHETTE')
+            m.map = max(self._map_votes, key=self._map_votes.get) if self._map_votes else None
             self._scoreboard_seen_at = now
             if record_match(self.state, m):
+                self._map_votes = {}
                 if m.kills > 0 and m.weapon in self.state.sheets:
                     count_match(self.state.sheets[m.weapon])
                 append_match(m, self.matches_path)
@@ -305,6 +331,7 @@ class Engine:
                 return True
             return False
         if kind == "class":
+            self._vote_map(lines, now)  # the same screen when 'CHOISIR LA CLASSE' is not read (14/11)
             weapon = read_class_weapon(lines, self.registry)
             if weapon is None or weapon == self.state.weapon:
                 return False

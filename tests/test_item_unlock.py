@@ -296,3 +296,45 @@ def test_garbled_condition_on_a_later_visit_keeps_the_count():
         apply_apparence(s, ApparenceReading([camo], {}, at=1.0, weapon="REZI 12"))
     c = _special(s, "Or noir")
     assert c.items_left == 8 and items_left(c.access_text) == 8
+
+
+# ----- real session 15/11 (VEL 46 levelling): each banner was counted twice -----
+
+def _vel(tmp_path, registry, names):
+    import json
+    from pathlib import Path
+    from trackcod.engine import Engine
+    fix = Path(__file__).parent / "fixtures" / "ocr"
+    frames = [OTHER if n is None else
+              [OcrLine(**d) for d in json.loads((fix / f"element_bandeau_{n}.json").read_text(encoding="utf-8"))]
+              for n in names]
+    s = new_sheet("VEL 46", "Mitraillette")
+    seed_specials(s, KnownCamos.load().specials("VEL 46"))
+    gris = next(c for c in s.camos if c.name_fr == "Gris acier")
+    gris.state, gris.items_left = "locked", 9
+    clock = Clock()
+    e = Engine(registry, AppState(weapon="VEL 46", sheets={"VEL 46": s}), tmp_path / "s.json", tmp_path / "m.jsonl",
+               lambda: frames.pop(0) if frames else None, clock)
+    _run(e, clock, len(names) + 3)
+    return 9 - gris.items_left
+
+
+def test_banner_whose_name_shows_after_a_piece_of_debloque_counts_once(tmp_path, registry):
+    """'OQUÉ' (the end of 'DÉBLOQUÉ') read where the name goes, then 'CROSSE EXP U-TURN' a frame later."""
+    assert _vel(tmp_path, registry, ["1534", "1535"]) == 1
+
+
+def test_banner_read_with_hud_text_on_the_next_frame_counts_once(tmp_path, registry):
+    """'CANON RV-B V2', then 'CANON RV-B' with the perks on the right ('NINJA', 'SANG-FROID')."""
+    assert _vel(tmp_path, registry, ["1800", "1801"]) == 1
+
+
+def test_banner_with_a_shorter_name_on_the_next_frame_counts_once(tmp_path, registry):
+    """'V46 VERT-TAC', then 'VERT-TAC'."""
+    assert _vel(tmp_path, registry, ["2051", "2052"]) == 1
+
+
+def test_banners_of_one_session_each_count(tmp_path, registry):
+    """Banners 50, 53, 54 and 55 of the session: four items."""
+    gap = [None] * 3  # minutes apart in the session
+    assert _vel(tmp_path, registry, ["1534", "1535", *gap, "1800", "1801", *gap, "1997", *gap, "2051", "2052"]) == 4

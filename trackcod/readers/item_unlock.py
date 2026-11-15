@@ -41,6 +41,11 @@ def _is_middle_title(line: OcrLine) -> bool:
             and "ELE" in plain.replace(" ", "") and fuzz.partial_ratio(plain, "NOUVEL ELEMENT") >= 75)
 
 
+def _is_debloque_piece(word: str) -> bool:
+    """'OQUE', 'LOQ': the end of the banner's 'DÉBLOQUÉ' read where the item name goes (15/11)."""
+    return len(word) >= 3 and (word in "DEBLOQUE" or fuzz.ratio(word, "DEBLOQUE") >= 75)
+
+
 def _is_level_up(text: str) -> bool:
     words = _plain(text).split()
     return len(words) >= 2 and fuzz.ratio(words[0], "NIVEAU") >= 80 and fuzz.ratio(words[1], "SUPERIEUR") >= 75
@@ -66,9 +71,11 @@ def read_item_unlock(lines: list[OcrLine]) -> ItemUnlock | None:
                  and abs(l.x - title.x) < 0.1 and _plain(l.text)]
         item = _plain(min(below, key=lambda l: l.y).text) if below else ""
     else:
+        # the card is right of the title, never above it (compass, kill feed: 'RIGHI 1-81', 15/11)
         item = " ".join(_plain(l.text) for l in lines
-                        if l.x > banner.x + banner.w and _plain(l.text) and "DEBLO" not in _plain(l.text)
-                        and not _plain(l.text).isdigit())
+                        if l.x > banner.x + banner.w and l.y >= banner.y - 0.03 and _plain(l.text)
+                        and "DEBLO" not in _plain(l.text) and not _plain(l.text).isdigit())
+    item = " ".join(w for w in item.split() if not _is_debloque_piece(w))  # also a 2nd read of the card title
     texts = [_plain(l.text) for l in lines]
     is_camo = any("CAMOUF" in t or "MILITAIRE" in t for t in texts + [item])
     weapon = None

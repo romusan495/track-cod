@@ -359,3 +359,11 @@ def test_current_camo_has_a_tip():
     _learn(s, ApparenceCamo("ASPHALTE", "special", None, None, None, "Faites 20 éliminations de joueurs à bout portant",
                             (1, 20), False, None), counts={"military": (0, 0), "special": (0, 3)})
     assert "petite carte" in build_view(s, AT).current.tip
+
+
+def test_done_camo_shows_a_full_counter():
+    """Real session 15/11: Spectre was seen done with its last read counter 13/20 and showed '13/20'."""
+    from trackcod.ui.viewmodel import _row
+    from trackcod.model import Camo
+    c = Camo(key="special:2", name_fr="Spectre", section="special", order=2, state="done", progress=(13, 20))
+    assert _row(c).counter == "20/20"

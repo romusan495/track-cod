@@ -8,14 +8,24 @@ from rapidfuzz import fuzz
 
 from trackcod.model import AppState, DailyChallenge
 from trackcod.readers.common import norm
-from trackcod.readers.daily import DailyBoard, DailyToast, numbers
+from trackcod.readers.daily import DailyBoard, DailyToast, _total, numbers
 
 _MATCH = 85
+DAILY_SLOTS = 4  # the game gives 4 challenges a day (plus the bonus 'Terminez 3 défis du jour')
 
 
 def _key(text: str) -> str:
     """Words only: OCR punctuation noise ('un; drone' 'de') never decides a match."""
     return " ".join(re.sub(r"[^A-Z0-9 ]+", " ", norm(text)).split())
+
+
+def _lost_zero(short: str, long: str) -> bool:
+    """'3' for '30': the game's slashed zero is often dropped by the OCR (15/11)."""
+    return long.startswith(short) and set(long[len(short):]) == {"0"}
+
+
+def _same_goal(a: str, b: str) -> bool:
+    return a == b or _lost_zero(a, b) or _lost_zero(b, a)
 
 
 def _score(a: str, b: str) -> float:
@@ -24,7 +34,7 @@ def _score(a: str, b: str) -> float:
     ('FAITES 2 ...' and 'FAITES 5 ...' are two challenges)."""
     score = fuzz.partial_ratio(a, b)
     nums_a, nums_b = set(numbers(a)), set(numbers(b))
-    if nums_a and nums_b and not nums_a & nums_b:
+    if nums_a and nums_b and not any(_same_goal(x, y) for x in nums_a for y in nums_b):
         return min(score, _MATCH - 1)
     words_a, words_b = set(re.findall(r"[A-Z]{4,}", a)), set(re.findall(r"[A-Z]{4,}", b))
     shared = words_a & words_b
@@ -72,7 +82,8 @@ def _looks_like_challenge(text: str) -> bool:
     """A challenge starts with a verb ('Faites', 'Terminez', 'Révélez'...), even garbled ('neveldL'); the title
     and labels read on 14/11 did not ('DA r A _ cTREga2', 'oarz_c1RL.eeZ .PÉElSPU;anl.J8. 23H')."""
     first = text.split()[0] if text.split() else ""
-    return "_" not in text and sum(c.isalpha() for c in first) >= 5
+    # a sentence ('Faites 30 éliminations.'), never an all-capitals label ('•PFFF.PUAB• 17M', 15/11)
+    return "_" not in text and sum(c.isalpha() for c in first) >= 5 and sum(c.islower() for c in text) >= 4
 
 
 def _whole(read) -> bool:
@@ -91,17 +102,29 @@ def _merge(state: AppState, board: DailyBoard, now: float) -> None:
         matches = [None] * len(board.challenges)
     for read, known in zip(board.challenges, matches):
         if known is None:
-            if _whole(read) and _looks_like_challenge(read.text):
+            if _whole(read) and _looks_like_challenge(read.text) and len(state.daily) < DAILY_SLOTS:
                 state.daily.append(DailyChallenge(read.text, read.total, read.progress, read.done))
             continue
-        if len(read.text) > len(known.text) and fuzz.partial_ratio(_key(known.text), _key(read.text)) >= 95:
+        if known.total and read.total and _lost_zero(str(read.total), str(known.total)):
+            continue  # '0/3' for '0/30': neither this total nor what it says of the progress is right
+        if _goal(read.text) < _goal(known.text):
+            pass  # 'Faites 3 éliminations.' for 'Faites 30 ...': the text lost a zero, the counter did not
+        elif len(read.text) > len(known.text) and fuzz.partial_ratio(_key(known.text), _key(read.text)) >= 95:
             known.text = read.text  # the same wording, more of it (never a garbled read over a clean one)
         elif _noise(read.text) < _noise(known.text) and len(read.text) >= 0.8 * len(known.text):
             known.text = read.text  # a cleaner read of it ('avec un ratio' over 'avéïülh ratio')
-        known.total = read.total or known.total
-        if read.progress is not None:
-            known.progress = read.progress
-        known.done = known.done or read.done
+        total, progress, done = read.total, read.progress, read.done
+        if known.total and total and total != known.total and total == _total(read.text):
+            # the goal of this read comes from its own text, garbled ('... 1000 points ... pa' without '2 fois',
+            # 14/11): the known goal stays, and a progress measured on the bar is scaled to it
+            if progress is not None:
+                progress = min(known.total, round(progress * known.total / total))
+            total = known.total
+            done = done and progress == total
+        known.total = total or known.total
+        if progress is not None:
+            known.progress = progress
+        known.done = known.done or done
     tidy(state)
     if board.bonus is not None:
         state.daily_bonus = board.bonus
@@ -123,16 +146,23 @@ def tidy(state: AppState) -> None:
         if twin is None:
             kept.append(c)
             continue
-        if _noise(c.text) < _noise(twin.text):
+        if _goal(c.text) > _goal(twin.text):  # 'Faites 30 ...' over 'Faites 3 ...': a zero is lost, never added
+            twin.text, twin.total = c.text, c.total
+        elif _goal(c.text) == _goal(twin.text) and _noise(c.text) < _noise(twin.text):
             twin.text = c.text
         twin.done = twin.done or c.done
         if c.progress is not None and (twin.progress is None or c.progress > twin.progress):
             twin.progress = c.progress
-    state.daily = kept
+    state.daily = kept[:DAILY_SLOTS]
     for c in state.daily:
         c.text = _strip_complete(c.text)
         if c.done and c.total:
             c.progress = c.total
+
+
+def _goal(text: str) -> int:
+    found = numbers(text)
+    return int(found[0]) if found else 0
 
 
 def apply_toast(state: AppState, toast: DailyToast | None) -> bool:

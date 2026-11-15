@@ -148,6 +148,8 @@ def _name(c: Camo) -> str:
 
 
 def _counter(c: Camo) -> str:
+    if c.progress and c.state == "done":
+        return f"{c.progress[1]}/{c.progress[1]}"  # done with an older read counter (Spectre 13/20, 15/11)
     return f"{c.progress[0]}/{c.progress[1]}" if c.progress else ""
 
 

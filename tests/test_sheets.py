@@ -375,3 +375,16 @@ def test_header_count_still_trusted_after_the_known_name_is_read_again():
     apply_apparence(sheet, ApparenceReading([hovered], {"special": (2, 3)}, at=1.0, weapon="CRONEN OSPREY"))
     specials = sorted((c for c in sheet.camos if c.section == "special"), key=lambda c: c.order)
     assert [c.state for c in specials][:2] == ["done", "done"]
+
+
+def test_known_name_stays_shown_over_garbled_reads():
+    """Real session 14/11: hover reads 'OANS&HERBE', 'DANS L'HERBE', 'DANS ERBE'... formed a bigger group than the
+    shipped name, and the window showed 'DANS L'HERBE' instead of 'Dans les herbes'."""
+    from trackcod.known_camos import KnownCamos
+    from trackcod.sheets import _vote, seed_specials
+    s = new_sheet("CRONEN OSPREY", "Fusil tactique")
+    seed_specials(s, KnownCamos.load().specials("CRONEN OSPREY"))
+    c = _get(s, "special:1")
+    _vote(c, ["OANS&HERBE", "OANSUHERBE", "OANS&HERBE-", "DANS L'HERBE", "DANS LIHERBE", "DANS ERBE",
+              "DANS ERBE-", "DANS", "DANS", "DANS ERE-"])
+    assert display_name(c) == "Dans les herbes" and c.name_fr == "Dans les herbes"

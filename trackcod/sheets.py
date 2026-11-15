@@ -114,6 +114,9 @@ def name_confirmed(c: Camo) -> bool:
 def display_name(c: Camo) -> str:
     if c.section == "military":
         return c.name_fr or c.key.replace("military:", "Militaire ")
+    known = next((v for v, n in c.name_votes.items() if n >= KNOWN_VOTES), None)
+    if known is not None:  # the shipped name, never a group of garbled reads ('DANS L'HERBE', 14/11)
+        return c.name_forms.get(known, known)
     best = _best_variant(c)
     if best is None:
         return PLACEHOLDER.get(c.section, "?")
