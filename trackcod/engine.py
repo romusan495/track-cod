@@ -1,5 +1,6 @@
 """Worker loop: reads the game screen, updates and saves AppState."""
 
+import dataclasses
 import logging
 import re
 
@@ -17,7 +18,7 @@ from trackcod.readers.combat_record import read_combat_record
 from trackcod.readers.common import OcrLine, norm
 from trackcod.readers.match_start import (is_game_mode, read_breadcrumb, read_match_info, read_match_start,
                                           read_weapon_title)
-from trackcod.readers.scoreboard import read_scoreboard
+from trackcod.readers.scoreboard import player_on_screen, read_scoreboard, same_player
 from trackcod.known_camos import KnownCamos
 from trackcod.readers.challenge_done import challenge_fits
 from trackcod.readers.unlock_banner import has_unlocked_word, read_banner
@@ -62,8 +63,20 @@ def share_word(a: str, b: str) -> bool:
     return bool(words(a) & words(b))
 
 
+def _is_next_military(sheet, number: int | None) -> bool:
+    done = {int(c.key.split(":")[1]) for c in sheet.camos if c.section == "military" and c.state == "done"}
+    return bool(number) and number not in done and all(i in done for i in range(1, number))
+
+
+def real_name(item: str) -> bool:
+    """An item name with a real word ('MUNITIONS', 'GRIDLOCK'), not the card's small print read alone ('WF XT',
+    '33UTC2 U SYS N L SRS', 16/11): a frame later the same card shows its name."""
+    return bool(re.findall(r"[A-Z]{4,}", norm(item)))
+
+
 BANNER_CONFIRM_S =8.0   # 'DÉBLOQUÉ' must follow the banner within this delay
 ITEM_GAP_S = 2.5          # an unreadable item card seen again after this gap is a new unlock
+BANNER_SHOWN_S = 3.0      # a 'NOUVEL ÉLÉMENT' banner stays this long: reads within it are that banner (16/11)
 ITEM_REPEAT_S = 30.0      # the same item name seen again within this delay is the same unlock
 CHALLENGE_CONFIRM_S = 6.0  # 'DÉFI TERMINÉ': a decisive read and another read of the banner within this delay
 UNLOCK_REPEAT_S = 60.0   # the same unlock seen again within this delay is ignored
@@ -91,12 +104,14 @@ class Engine:
         self._map_votes: dict[str, tuple[int, float]] = {}  # map read on this match's class screens: (reads, last)
         self._map_at = -1e9
         self._scoreboard_seen_at = state.last_match.at if state.last_match else 0.0
+        self._scoreboard_player: str | None = state.own_name  # whose row the last recorded match came from
         self.lock = threading.Lock()
         self._banner: tuple | None = None          # (BannerRead, seen_at) waiting for 'DÉBLOQUÉ'
         self._unlocks_seen: dict[tuple, float] = {}
         self._level_read: int | None = None             # last badge read, waiting for a second one
         self._items_seen: list[tuple[str, float]] = []   # (item card text, last seen)
         self._item_card_at = -1e9
+        self._item_shown_at = -1e9                        # first sighting of the current run of item cards
         self._item_unnamed = False                        # the last card seen had no item name
         self._challenge_reads: list[tuple[float, set[str], set[str]]] = []  # (at, decisive, fitting)
 
@@ -194,6 +209,13 @@ class Engine:
             return False
         gap = now - self._item_card_at
         self._item_card_at = now
+        if gap > ITEM_GAP_S:
+            self._item_shown_at = now  # a new run of sightings
+        elif unlock.banner and now - self._item_shown_at < BANNER_SHOWN_S:
+            if unlock.item:  # the same banner, its name read another way ('OEEL OQEIE', then 'CHARGEUR DE 35...')
+                self._items_seen.append((unlock.item, now))
+            self._item_unnamed = not unlock.item and self._item_unnamed
+            return False
         unnamed_just_before = gap <= ITEM_GAP_S and self._item_unnamed
         self._item_unnamed = not unlock.item
         if unlock.item and unnamed_just_before:  # the name shows a frame after the title: the same banner
@@ -203,7 +225,8 @@ class Engine:
         if unlock.item:
             same = next((i for i, (t, _) in enumerate(self._items_seen)
                          if fuzz.ratio(t, unlock.item) >= 75
-                         or (gap <= ITEM_GAP_S and (same_card(t, unlock.item) or share_word(t, unlock.item)))),
+                         or (gap <= ITEM_GAP_S and (same_card(t, unlock.item) or share_word(t, unlock.item)
+                                                    or not real_name(t) or not real_name(unlock.item)))),
                         None)
             if same is not None:
                 self._items_seen[same] = (self._items_seen[same][0], now)
@@ -315,14 +338,21 @@ class Engine:
             self.sheet(weapon)
             return True
         if kind == "scoreboard":
-            m = read_scoreboard(lines, now, self.state.weapon)
+            player = player_on_screen(lines, self.state.own_name)
+            m = read_scoreboard(lines, now, self.state.weapon, player)
             if m is None or self._is_same_match(m):
                 return False
+            if (now - self._scoreboard_seen_at < SAME_MATCH_WINDOW_S and self._scoreboard_player
+                    and not same_player(player, self._scoreboard_player)):
+                return False  # the same end screen, the cursor on another player (16/11)
             # the most read; on a tie the latest, read once the screen stopped moving ('CACHET TF' / 'CACHETTE')
             m.map = max(self._map_votes, key=self._map_votes.get) if self._map_votes else None
             self._scoreboard_seen_at = now
             if record_match(self.state, m):
                 self._map_votes = {}
+                self._scoreboard_player = player
+                if player != self.state.own_name:
+                    self.state.own_name = player
                 if m.kills > 0 and m.weapon in self.state.sheets:
                     count_match(self.state.sheets[m.weapon])
                 append_match(m, self.matches_path)
@@ -355,7 +385,11 @@ class Engine:
             return True
         banner = read_banner(lines, self.registry, self.known)
         if banner is not None:
-            if banner.corner and banner.weapon == self.state.weapon:  # the game's corner unlock notification
+            if banner.corner:  # the game's own unlock notification: ours, whichever weapon it names (16/11)
+                if banner.weapon is None:  # its weapon line unread: the held weapon, if it is its next camo
+                    if not self.state.weapon or not _is_next_military(self.sheet(self.state.weapon), banner.number):
+                        return False
+                    banner = dataclasses.replace(banner, weapon=self.state.weapon)
                 return self._apply_unlock(banner, now)
             self._banner = (banner, now)
         changed = self._count_item(lines, now, camo_pending=self._banner is not None

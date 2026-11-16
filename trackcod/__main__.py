@@ -60,6 +60,8 @@ def run_check() -> int:
         return 3
     ok = ocr_available()
     lines.append("OCR fr-FR : OK" if ok else "OCR fr-FR : ABSENT")
+    from trackcod.ocr.paddle import available
+    lines.append("OCR fin : OK" if available() else "OCR fin : ABSENT (OCR Windows seul)")
     (data / "check.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return 0 if ok else 2
 

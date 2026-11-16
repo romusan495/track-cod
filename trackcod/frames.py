@@ -6,7 +6,7 @@ from trackcod.readers.apparence import ocr_apparence
 from trackcod.readers.challenge_done import ocr_center_band
 from trackcod.readers.classify import classify
 from trackcod.readers.common import OcrLine
-from trackcod.readers.daily import daily_bars
+from trackcod.readers.daily import daily_bars, ocr_daily_panel
 from trackcod.readers.scoreboard import ocr_own_row
 from trackcod.readers.match_start import ocr_match_start
 from trackcod.readers.tiles import grab_tiles
@@ -50,18 +50,25 @@ def live_frame_source() -> list[OcrLine] | None:
     if rect is None:
         return None
     img = grab(rect)
-    base = ocr_image(img)
+    return read_frame(img, ocr_image(img), tiles.feed)
+
+
+def read_frame(img, base: list[OcrLine], on_apparence=None) -> list[OcrLine]:
+    """The lines the engine reads for a frame: the whole-screen Windows OCR (`base`) plus the extra passes the
+    screen needs. Also used to replay recorded sessions."""
     kind = classify(base)
     if kind == "apparence":
         lines = ocr_apparence(img, raw=base)
-        tiles.feed(img, lines)
+        if on_apparence is not None:
+            on_apparence(img, lines)
         return lines
     if kind in ("match_start", "class"):  # green weapon name above 'MULTI', often hidden by the gun picture
         return base + ocr_match_start(img, base)
     if kind == "scoreboard":  # the player's highlighted row is read badly: zoom on it
         return ocr_own_row(img, base)
-    if kind == "daily":  # the counters are often unreadable: measure the progress bars instead
-        return base + daily_bars(img, base)
-    if kind == "other":  # in match: 'DÉFI TERMINÉ' in white over the sky, re-read zoomed when something shows there
+    if kind == "daily":  # fine OCR of the panel (counters); the progress bars measured when still unreadable
+        lines = ocr_daily_panel(img, base)
+        return lines + daily_bars(img, lines)
+    if kind == "other":  # in match: 'DÉFI TERMINÉ' / 'NOUVEL ÉLÉMENT' in the middle, re-read when something shows
         return ocr_center_band(img, base)
     return base

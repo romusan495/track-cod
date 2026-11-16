@@ -18,7 +18,7 @@ EXCLUDED = ["PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.Qt
             "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtQuick3D", "PySide6.Qt3DCore", "PySide6.Qt3DRender",
             "PySide6.QtMultimedia", "PySide6.QtCharts", "PySide6.QtDataVisualization", "PySide6.QtPdf",
             "PySide6.QtDesigner", "PySide6.QtBluetooth", "PySide6.QtSql", "PySide6.QtTest", "tkinter",
-            "numpy", "pytest"]
+            "pytest"]  # numpy stays: the fine OCR (onnxruntime) needs it
 
 
 def find_iscc(env) -> Path | None:
@@ -38,6 +38,7 @@ def main() -> int:
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--windowed", "--name", "TrackCOD",
            "--distpath", str(DIST), "--workpath", str(ROOT / "build"), "--specpath", str(ROOT / "build"),
            "--collect-all", "winrt",
+           "--collect-binaries", "onnxruntime",  # fine OCR (trackcod.ocr.paddle); its models are in trackcod/data
            "--icon", str(ROOT / "assets" / "trackcod.ico"),
            "--add-data", f"{ROOT / 'trackcod' / 'assets'};trackcod/assets",
            "--add-data", f"{ROOT / 'trackcod' / 'data'};trackcod/data",

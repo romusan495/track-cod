@@ -70,7 +70,7 @@ class WeaponRegistry:
             return None
         names = self._names()
         best = process.extractOne(query, [norm(n) for n in names], scorer=fuzz.WRatio)
-        if best is None or best[1] < MATCH_THRESHOLD:
+        if best is None or best[1] < MATCH_THRESHOLD or not _letters_read(names[best[2]], query):
             return None
         return names[best[2]]
 
@@ -98,3 +98,10 @@ class WeaponRegistry:
                 return None
         self._pending[cleaned] = (1, cleaned)
         return None
+
+
+def _letters_read(name: str, query: str) -> bool:
+    """A weapon is named by its letters: '46 /59 ÉLÉMENTS DÉBLOQUÉS' is not the VEL 46 (16/11). A word of 3
+    letters or more of the name is in the read, give or take an OCR slip ('STRICA' for 'STRIGA')."""
+    words = [w for w in "".join(c if c.isalpha() else " " for c in norm(name)).split() if len(w) >= 3]
+    return not words or any(fuzz.partial_ratio(w, query) >= 80 for w in words)

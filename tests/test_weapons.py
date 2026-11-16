@@ -58,3 +58,12 @@ def test_add_typed_name():
     r = WeaponRegistry([], [])
     assert r.add(" Nouvelle Arme ") == "NOUVELLE ARME" and r.match("nouvelle arme") == "NOUVELLE ARME"
     assert r.add("  ") is None
+
+
+def test_a_number_alone_never_names_a_weapon(registry):
+    """Real session 16/11: '46 /59 ÉLÉMENTS DÉBLOQUÉS' under a half-read title ('< WE') was taken for the VEL 46,
+    and the window kept switching between the WZ.55 Striga and the VEL 46."""
+    assert registry.match("46 /59 ÉLÉMENTS DÉBLOQUÉS") is None
+    assert registry.match("46") is None
+    assert registry.match("WZ.55 STRIGA") == "WZ.55 STRIGA"
+    assert registry.match("VEL 46") == "VEL 46"

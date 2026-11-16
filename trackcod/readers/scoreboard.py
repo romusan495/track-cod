@@ -40,6 +40,24 @@ def _player_name(lines: list[OcrLine]) -> str | None:
     return max(left, key=lambda l: l.x).text.strip() if left else None
 
 
+def _row_of(lines: list[OcrLine], name: str) -> OcrLine | None:
+    return next((l for l in lines if 0.3 < l.y < 0.85 and norm(l.text) not in _HEADERS
+                 and fuzz.partial_ratio(norm(name), norm(l.text)) >= _NAME_MATCH
+                 and len(l.text) >= len(name) - 2), None)
+
+
+def player_on_screen(lines: list[OcrLine], own: str | None) -> str | None:
+    """The player whose row to read: the gamertag learned from earlier matches when its row is in the tables,
+    else the name in the summary panel, which follows the cursor (16/11: moved to another player)."""
+    if own and _row_of(lines, own) is not None:
+        return own
+    return _player_name(lines)
+
+
+def same_player(a: str | None, b: str | None) -> bool:
+    return bool(a and b) and fuzz.ratio(norm(a), norm(b)) >= _NAME_MATCH
+
+
 def own_row_band(lines: list[OcrLine]) -> tuple[float, float, float, float] | None:
     """(x0, y0, x1, y1) of the player's row in their team table: the highlighted row the OCR reads worst."""
     name = _player_name(lines)
@@ -69,11 +87,14 @@ def ocr_own_row(img, base: list[OcrLine]) -> list[OcrLine]:
     band = own_row_band(base)
     if band is None:
         return base
-    x0, y0, x1, y1 = band
-    W, H = img.size
-    crop = img.crop((int(x0 * W), int(y0 * H), int(x1 * W), int(y1 * H)))
-    zoom = [OcrLine(l.text, x0 + l.x * (x1 - x0), y0 + l.y * (y1 - y0), l.w * (x1 - x0), l.h * (y1 - y0))
-            for l in ocr_image(crop, upscale=2.0)]
+    from trackcod.ocr.paddle import ocr_zone
+    zoom = ocr_zone(img, band)  # the fine OCR; else the Windows one zoomed x2
+    if zoom is None:
+        x0, y0, x1, y1 = band
+        W, H = img.size
+        crop = img.crop((int(x0 * W), int(y0 * H), int(x1 * W), int(y1 * H)))
+        zoom = [OcrLine(l.text, x0 + l.x * (x1 - x0), y0 + l.y * (y1 - y0), l.w * (x1 - x0), l.h * (y1 - y0))
+                for l in ocr_image(crop, upscale=2.0)]
     return replace_row(base, zoom, band) if zoom else base
 
 
@@ -105,12 +126,12 @@ def _mode(lines: list[OcrLine], result: OcrLine) -> str | None:
     return " ".join(l.text.strip() for l in same_row)
 
 
-def read_scoreboard(lines: list[OcrLine], at: float, weapon: str | None) -> MatchStats | None:
+def read_scoreboard(lines: list[OcrLine], at: float, weapon: str | None, name: str | None = None) -> MatchStats | None:
     found = _result_line(lines)
     if found is None or not is_scoreboard(lines):
         return None
     result_line, result = found
-    name = _player_name(lines)
+    name = name or _player_name(lines)
     if name is None:
         return None
     rows = [l for l in lines if 0.3 < l.y < 0.85 and norm(l.text) not in _HEADERS

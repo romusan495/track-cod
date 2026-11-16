@@ -331,3 +331,28 @@ def test_map_tie_goes_to_the_latest_read(env):
     frames.extend([with_map("CACHET TF"), with_map("CACHETTE"), load("scoreboard_victoire")])
     _run(e, clock, 3)
     assert e.state.last_match.map == "CACHETTE"
+
+
+def test_cursor_on_another_player_is_not_another_match(env):
+    """Real session 16/11: the end screen's cursor moved to another player; the summary panel then names him and
+    his row (8/8) was recorded as a second match right after the player's own (11/19)."""
+    make, frames, clock, tmp = env
+    e = make()
+    frames.extend([load("scoreboard_curseur_sur_moi"), load("scoreboard_curseur_sur_un_autre"),
+                   load("scoreboard_curseur_sur_moi")])
+    _run(e, clock, 3)
+    lines = (tmp / "matches.jsonl").read_text(encoding="utf-8").splitlines()
+    assert [(json.loads(l)["kills"], json.loads(l)["deaths"]) for l in lines] == [(11, 19)]
+
+
+def test_own_name_learned_from_matches_finds_the_row_when_the_cursor_moved_first(env):
+    """Once the player's name is known, a later end screen opened with the cursor elsewhere still reads his row."""
+    make, frames, clock, tmp = env
+    e = make()
+    frames.append(load("scoreboard_curseur_sur_moi"))
+    _run(e, clock, 1)
+    clock.t += 3600  # another match, an hour later: the cursor is already on someone else
+    frames.append(load("scoreboard_curseur_sur_un_autre"))
+    _run(e, clock, 1)
+    lines = (tmp / "matches.jsonl").read_text(encoding="utf-8").splitlines()
+    assert [(json.loads(l)["kills"], json.loads(l)["deaths"]) for l in lines][-1] == (11, 19)

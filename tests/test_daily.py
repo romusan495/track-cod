@@ -284,3 +284,12 @@ def test_garbled_read_never_changes_the_goal_of_a_known_challenge():
     merge_board(s, DailyBoard([DailyRead("Marquez au moins 1000 points ausw F cours d'une même pa", 1000, 722, False)],
                               None, None), now=100.0)
     assert (s.daily[0].total, s.daily[0].progress, s.daily[0].done) == (2, 1, False)
+
+
+def test_complete_label_read_letter_by_letter():
+    """The fine OCR (16/11) reads the done label 'C OM P LÉ TÉ': still the label, never part of the challenge."""
+    from trackcod.readers.daily import _is_complete
+    from trackcod.readers.common import norm
+    for label in ("C OM P LÉ TÉ", "C O M P LÉ T É", "COMPLÉTÉ"):
+        assert _is_complete(norm(label)), label
+    assert not _is_complete(norm("Faites 3 élimination(s) en étant"))

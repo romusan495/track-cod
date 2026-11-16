@@ -20,7 +20,7 @@ _NAME_MATCH = 85
 
 @dataclass(frozen=True)
 class BannerRead:
-    weapon: str
+    weapon: str | None        # None: a corner notification whose weapon line was not read (16/11)
     section: str              # military / special / erudit
     number: int | None = None
     name: str | None = None
@@ -60,10 +60,12 @@ def read_banner(lines: list[OcrLine], registry: WeaponRegistry, known: KnownCamo
     for line in lines:
         m = _MILITARY.search(_plain(line.text))
         if m:
-            weapon = _weapon_above(line, lines, registry) or anywhere
-            if weapon is None:
+            corner = _in_corner(line)
+            # in the corner, a weapon read elsewhere on screen is HUD text, not the notification's weapon
+            weapon = _weapon_above(line, lines, registry) or (None if corner else anywhere)
+            if weapon is None and not corner:
                 return None
-            return BannerRead(weapon, "military", number=int(m.group(1)), corner=_in_corner(line))
+            return BannerRead(weapon, "military", number=int(m.group(1)), corner=corner)
     weapon = anywhere
     if weapon is None:
         return None

@@ -17,6 +17,7 @@ from trackcod.model import WeaponSheet
 from trackcod.readers.common import OcrLine, norm
 
 BAND = (0.33, 0.22, 0.67, 0.36)  # left, top, right, bottom (share of the frame)
+FINE_ZONE = (0.30, 0.20, 0.86, 0.42)  # read by the fine OCR: the band plus the item card of 'NOUVEL ÉLÉMENT'
 _MIN_LETTERS = 8                 # a piece that decides alone
 _MIN_SUPPORT = 6                 # a piece that backs up another frame ('AU JUGÉ')
 _FIT = 90
@@ -41,9 +42,14 @@ def needs_band_pass(lines: list[OcrLine]) -> bool:
 
 
 def ocr_center_band(img, base: list[OcrLine]) -> list[OcrLine]:
-    """Base lines plus two zoomed reads of the band (plain and inverted grey) when something was read there."""
+    """Base lines plus a fine read of the band (trackcod.ocr.paddle) when something was read there; without the
+    fine OCR, two zoomed Windows reads (plain and inverted grey)."""
     if not needs_band_pass(base):
         return base
+    from trackcod.ocr.paddle import ocr_zone
+    fine = ocr_zone(img, FINE_ZONE)
+    if fine is not None:
+        return base + fine
     from trackcod.ocr.engine import ocr_image
     left, top, right, bottom = BAND
     W, H = img.size

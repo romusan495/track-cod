@@ -17,6 +17,7 @@ class ItemUnlock:
     item: str        # text of the item card (may be partial or empty)
     is_camo: bool
     weapon: str | None = None  # weapon line under the banner title ('CRONEN OSPREY'), when read
+    banner: bool = False       # the in-match 'NOUVEL ÉLÉMENT DÉBLOQUÉ' banner (not the level-up card)
 
 
 def _plain(text: str) -> str:
@@ -30,6 +31,8 @@ def _is_banner(text: str) -> bool:
 
 
 _MIDDLE = (0.3, 0.2, 0.62, 0.32)  # left, top, right, bottom: where the banner title sits on a full frame
+_CARD_RIGHT = 0.42  # the item card of the middle banner ends this far right of the title's left edge
+_CARD_BELOW = 0.1   # ... and this far under it
 
 
 def _is_middle_title(line: OcrLine) -> bool:
@@ -71,9 +74,14 @@ def read_item_unlock(lines: list[OcrLine]) -> ItemUnlock | None:
                  and abs(l.x - title.x) < 0.1 and _plain(l.text)]
         item = _plain(min(below, key=lambda l: l.y).text) if below else ""
     else:
-        # the card is right of the title, never above it (compass, kill feed: 'RIGHI 1-81', 15/11)
+        # the card is right of the title, never above it (compass, kill feed: 'RIGHI 1-81', 15/11); for the banner
+        # in the middle, the card stays close: the perks further right ('FANTÔME NINJA SANG-FROID') and the
+        # medals under it ('DOUBLE ÉLIMINATION') are not the item (16/11)
+        middle = banner.x > _MIDDLE[0] - 0.05
+        right = banner.x + _CARD_RIGHT if middle else 2.0
+        bottom = banner.y + _CARD_BELOW if middle else 2.0
         item = " ".join(_plain(l.text) for l in lines
-                        if l.x > banner.x + banner.w and l.y >= banner.y - 0.03 and _plain(l.text)
+                        if banner.x + banner.w < l.x < right and banner.y - 0.03 <= l.y <= bottom and _plain(l.text)
                         and "DEBLO" not in _plain(l.text) and not _plain(l.text).isdigit())
     item = " ".join(w for w in item.split() if not _is_debloque_piece(w))  # also a 2nd read of the card title
     texts = [_plain(l.text) for l in lines]
@@ -85,4 +93,4 @@ def read_item_unlock(lines: list[OcrLine]) -> ItemUnlock | None:
         weapon = min(under, key=lambda l: l.y).text.strip() if under else None
         if weapon:
             item = " ".join(w for w in item.split() if w not in _plain(weapon).split()).strip()
-    return ItemUnlock(item, is_camo, weapon)
+    return ItemUnlock(item, is_camo, weapon, banner=title is None)

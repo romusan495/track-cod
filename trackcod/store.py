@@ -44,6 +44,7 @@ def _from_dict(d: dict) -> AppState:
         global_stats=GlobalStats(**d.get("global_stats", {})),
         seen_fingerprints=list(d.get("seen_fingerprints", []))[-MAX_FINGERPRINTS:],
         phase=d.get("phase", "unknown"),
+        own_name=d.get("own_name"),
         phase_at=d.get("phase_at"),
         compact=bool(d.get("compact", False)),
         compact_geometry=tuple(d["compact_geometry"]) if d.get("compact_geometry") else None,

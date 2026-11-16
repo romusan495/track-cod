@@ -102,8 +102,11 @@ def _is_title(text: str) -> bool:
 def _is_complete(text: str) -> bool:
     """'COMPLÉTÉ' under a done challenge, also when read 'COMPÜÉTÉ' (console) or split ('c OMP VÉTÉ')."""
     words = text.split()
-    return (bool(words) and len(words) <= 3
-            and max(fuzz.ratio(words[0], "COMPLETE"), fuzz.ratio("".join(words), "COMPLETE")) >= 70)
+    if not words:
+        return False
+    if all(len(w) <= 3 for w in words) and len("".join(words)) <= 10:  # letter by letter ('C OM P LÉ TÉ', 16/11)
+        return fuzz.ratio("".join(words), "COMPLETE") >= 70
+    return len(words) <= 3 and max(fuzz.ratio(words[0], "COMPLETE"), fuzz.ratio("".join(words), "COMPLETE")) >= 70
 
 
 def numbers(text: str) -> list[str]:
@@ -185,6 +188,22 @@ def read_daily_toast(lines: list[OcrLine]) -> DailyToast | None:
     return DailyToast(" ".join(l.text.strip() for l in body),
                       (int(counter.group(1)), int(counter.group(2))) if counter else None,
                       "TERMINE" in norm(header.text))
+
+
+def ocr_daily_panel(img, base: list[OcrLine]) -> list[OcrLine]:
+    """The panel re-read by the fine OCR (trackcod.ocr.paddle), which reads the counters ('0/3') the Windows OCR
+    misses (16/11); its lines replace the Windows ones there. Unchanged when the fine OCR is not available."""
+    anchor = _bonus_line(base)
+    if anchor is None:
+        return base
+    from trackcod.ocr.paddle import ocr_zone
+    zone = (max(0.0, anchor.x - 0.02), max(0.0, anchor.y - _MAX_SPAN), min(1.0, anchor.x + 0.3),
+            min(1.0, anchor.y + 0.07))
+    fine = ocr_zone(img, zone)
+    if not fine or _bonus_line(fine) is None:
+        return base
+    inside = lambda l: zone[0] <= l.x <= zone[2] and zone[1] <= l.y <= zone[3]
+    return [l for l in base if not inside(l)] + fine
 
 
 def daily_bars(img, lines: list[OcrLine]) -> list[OcrLine]:

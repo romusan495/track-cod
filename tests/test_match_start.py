@@ -83,3 +83,12 @@ def test_game_modes_are_told_from_class_menus():
         assert is_game_mode(mode), mode
     for menu in ("VERSION CRÉÉE", "RÉCOMPENSES BONUS", "JETONS DISPONIBLES", None):
         assert not is_game_mode(menu), menu
+
+
+def test_map_read_with_a_stray_letter_or_digit_in_front():
+    """Real session 16/11: '3CANYON' and 'E JOUEURS' (the lobby's player count) were kept as maps."""
+    assert read_match_info(_with_map("3CANYON"))[1] == "CANYON"
+    assert read_match_info(_with_map("I LOTUS"))[1] == "LOTUS"
+    assert read_match_info(_with_map("E JOUEURS"))[1] is None
+    assert read_match_info(_with_map("12 JOUEURS"))[1] is None
+    assert read_match_info(_with_map("OUEURS"))[1] is None

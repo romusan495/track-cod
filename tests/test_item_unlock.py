@@ -338,3 +338,80 @@ def test_banners_of_one_session_each_count(tmp_path, registry):
     """Banners 50, 53, 54 and 55 of the session: four items."""
     gap = [None] * 3  # minutes apart in the session
     assert _vel(tmp_path, registry, ["1534", "1535", *gap, "1800", "1801", *gap, "1997", *gap, "2051", "2052"]) == 4
+
+
+# ----- real session 16/11 (WZ.55 Striga): banners 45, 47 and 49 each counted twice -----
+
+def _count(tmp_path, registry, monkeypatch, names, weapon="WZ.55 STRIGA"):
+    import json
+    from pathlib import Path
+    import trackcod.engine as engine
+    calls = []
+    monkeypatch.setattr(engine, "count_item_unlock", lambda sheet: calls.append(sheet.weapon) or [])
+    fix = Path(__file__).parent / "fixtures" / "ocr"
+    frames = [OTHER if n is None else
+              [OcrLine(**d) for d in json.loads((fix / f"element_bandeau_16_{n}.json").read_text(encoding="utf-8"))]
+              for n in names]
+    clock = Clock()
+    e = engine.Engine(registry, AppState(weapon=weapon), tmp_path / "s.json", tmp_path / "m.jsonl",
+                      lambda: frames.pop(0) if frames else None, clock)
+    _run(e, clock, len(names) + 3)
+    return calls
+
+
+def test_perks_beside_the_banner_are_not_another_item(tmp_path, registry, monkeypatch):
+    """'33ÛTC2 GRIDLOCK' half read, then the perks shown at the right ('FANTÔME NINJA SANG-FROID') a frame later."""
+    assert len(_count(tmp_path, registry, monkeypatch, ["2325", "2326"])) == 1
+
+
+def test_medals_under_the_banner_are_not_an_item(tmp_path, registry, monkeypatch):
+    """'DOUBLE ÉLIMINATION VENGEANCE SAUT MORTEL' (medals under the banner), then the card a frame later."""
+    assert len(_count(tmp_path, registry, monkeypatch, ["2606", "2608"], weapon="SANG 9MM")) == 1
+
+
+def test_unreadable_name_then_the_real_one_is_one_banner(tmp_path, registry, monkeypatch):
+    """'WF XT' (the card's small print), then 'MUNITIONS DÉCHIRANTES 9 MM' a frame later."""
+    assert len(_count(tmp_path, registry, monkeypatch, ["2939", "2940"])) == 1
+
+
+def test_three_banners_of_the_session_count_three(tmp_path, registry, monkeypatch):
+    gap = [None] * 3
+    assert len(_count(tmp_path, registry, monkeypatch, ["2325", "2326", *gap, "2606", "2608", *gap, "2939", "2940"])) == 3
+
+
+def test_corner_notification_of_another_weapon_unlocks_it(tmp_path, registry):
+    """Real session 16/11: 'SANG 9MM' + 'CAMOUFLAGE MILITAIRE 2' in the corner while the primary was held."""
+    toast = [OcrLine("SANG 9MM", 0.836, 0.251, 0.03, 0.016), OcrLine("CAMOUFLAGE MILITAIRE 2", 0.836, 0.272, 0.08, 0.026)]
+    e, clock = _engine(tmp_path, registry, [toast, OTHER, OTHER])
+    _run(e, clock, 3)
+    mil = {c.key: c.state for c in e.state.sheets["SANG 9MM"].camos if c.section == "military"}
+    assert mil["military:2"] == "done" and mil["military:3"] == "available"
+
+
+def _held_with_military_done(tmp_path, registry, done, frames):
+    from trackcod.sheets import ensure_slots
+    e, clock = _engine(tmp_path, registry, frames)
+    s = e.state.sheets["REZI 12"]
+    ensure_slots(s, "military", 8)
+    for c in s.camos:
+        if c.section == "military" and int(c.key.split(":")[1]) <= done:
+            c.state = "done"
+    _run(e, clock, len(frames))
+    return {int(c.key.split(":")[1]): c.state for c in s.camos if c.section == "military"}
+
+
+def test_corner_notification_without_its_weapon_is_the_held_weapons_next_camo(tmp_path, registry):
+    """Real session 16/11: only 'CAMOUFLAGE MILITAIRE 5' was read (the weapon line above it was not)."""
+    toast = [OcrLine("CAMOUFLAGE MILITAIRE 5", 0.834, 0.272, 0.08, 0.026)]
+    assert _held_with_military_done(tmp_path, registry, 4, [toast, OTHER, OTHER])[5] == "done"
+
+
+def test_corner_notification_without_its_weapon_and_not_next_is_left_alone(tmp_path, registry):
+    toast = [OcrLine("CAMOUFLAGE MILITAIRE 5", 0.834, 0.272, 0.08, 0.026)]
+    assert _held_with_military_done(tmp_path, registry, 2, [toast, OTHER, OTHER])[5] != "done"
+
+
+def test_garbled_name_between_title_and_name_is_one_banner(tmp_path, registry, monkeypatch):
+    """Real session 16/11: the title alone, then 'OEEL OQEIE OF XL', then 'CHARGEUR DE 35 CARTOUCHES', one second
+    apart: one banner (a banner stays about 3 s on screen)."""
+    assert len(_count(tmp_path, registry, monkeypatch, ["1224", "1225", "1226"])) == 1

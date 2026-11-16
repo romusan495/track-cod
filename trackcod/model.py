@@ -97,6 +97,7 @@ class AppState:
     meta_builds: dict[str, str] = field(default_factory=dict)  # weapon -> chosen meta build style
     learned_weapons: list[str] = field(default_factory=list)
     player_level: int | None = None
+    own_name: str | None = None   # gamertag learned from the end screens (the cursor can move to other players)
     prestige: int | None = None   # set by the player once (the emblem's digit can't be read)
     site_publish: bool = False    # 'Publier mes stats sur le site' (opt-in)
     site_pseudo: str | None = None

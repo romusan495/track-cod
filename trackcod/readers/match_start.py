@@ -151,6 +151,9 @@ def map_name(text: str, mode: str = "") -> str | None:
     under it ('OCORE', 'AROCORE' for HARDCORE, 'MATCH'), the lobby message, a weapon line in small letters.
     Stray marks around it go ('.BACKSTAB')."""
     name = re.sub(r"^\W+|\W+$", "", text.strip())
+    name = re.sub(r"^(\d+(?=[A-Z])|[A-Z]\s+(?=[A-Z]{3}))", "", name)  # '3CANYON', 'I LOTUS' (16/11)
+    if fuzz.partial_ratio(norm(name).replace(" ", ""), "JOUEURS") >= 80:
+        return None  # the lobby's 'n JOUEURS'
     if any(c.islower() for c in name) or sum(c.isalpha() for c in name) < 3:
         return None
     squeezed = norm(name).replace(" ", "")

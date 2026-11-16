@@ -21,3 +21,9 @@ def test_iscc_user_install_then_program_files(tmp_path):
     machine = _touch(tmp_path / "pf86" / "Inno Setup 6" / "ISCC.exe")  # GitHub runners (choco)
     assert find_iscc({"ProgramFiles(x86)": str(tmp_path / "pf86")}) == machine
     assert find_iscc({}) is None
+
+
+def test_the_fine_ocr_is_packaged():
+    """numpy was excluded from the build: the fine OCR would have fallen back to the Windows OCR on every PC."""
+    from tools.build import EXCLUDED
+    assert "numpy" not in EXCLUDED and "onnxruntime" not in EXCLUDED

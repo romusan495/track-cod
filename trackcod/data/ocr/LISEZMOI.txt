@@ -1,0 +1,13 @@
+Modèles OCR utilisés par Track COD pour les zones difficiles (trackcod/ocr/paddle.py)
+
+- det.onnx : PP-OCRv6 détection (small), multilingue
+- rec.onnx : PP-OCRv6 reconnaissance (small), multilingue
+
+Origine : PaddleOCR (https://github.com/PaddlePaddle/PaddleOCR), sous licence Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0), convertis au format ONNX par le projet RapidOCR
+(https://github.com/RapidAI/RapidOCR, Apache License 2.0), version 3.10.0.
+Fichiers repris sans modification.
+
+SHA-256 :
+090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f  det.onnx
+6f327246b50388f3c176ae304bd95767ea6dc0c9ae92153ef8cbe210b3c14884  rec.onnx
