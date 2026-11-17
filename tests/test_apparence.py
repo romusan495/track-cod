@@ -204,3 +204,51 @@ def test_challenge_worded_eliminez_is_read():
     assert c.challenge_fr.startswith("Éliminez 20")
     assert c.progress == (2, 20)
     assert c.access_met is True and not c.locked
+
+
+# ----- fine OCR of the details (real Apparence session 17/11) -----
+
+def _fine_read(name):
+    import json
+    from pathlib import Path
+    from PIL import Image
+    from trackcod.readers.apparence import ocr_apparence, read_apparence
+    from trackcod.readers.common import OcrLine
+    here = Path(__file__).parent / "fixtures"
+    raw = [OcrLine(**d) for d in json.loads((here / "ocr" / f"{name}.json").read_text(encoding="utf-8"))]
+    reading = read_apparence(ocr_apparence(Image.open(here / "img" / f"{name}.webp"), raw=raw), 0.0)
+    return reading.camos[0]
+
+
+def _needs_fine_ocr():
+    import trackcod.ocr.paddle as paddle
+    return pytest.mark.skipif(not paddle.available(), reason="fine OCR not available")
+
+
+@pytest.mark.windows
+@_needs_fine_ocr()
+def test_crossed_out_conditions_are_met_and_the_camo_done():
+    """Topo noir done: both lines crossed out with a check mark the OCR cannot see. Read before as locked."""
+    c = _fine_read("apparence_fin_topo_noir_fait")
+    assert c.access_text.startswith("Obtenez 43 arme") and c.access_met is True and not c.locked
+    assert c.challenge_fr == "Faites 10 doubles éliminations de joueurs." and c.progress == (10, 10)
+
+
+@pytest.mark.windows
+@_needs_fine_ocr()
+def test_locked_special_condition_read_whole():
+    """Windows passes gave 'Obtenez aimu(s) Supp e'; the fine OCR reads the whole condition and its count."""
+    from trackcod.sheets import items_left
+    c = _fine_read("apparence_fin_puits_sombre_verrouille")
+    assert "en utilisant : PPSh-41" in c.access_text and items_left(c.access_text) == 7
+    assert c.access_met is False and c.locked and c.progress is None
+
+
+@pytest.mark.windows
+@_needs_fine_ocr()
+def test_title_not_read_the_panel_is_read_from_its_category_line():
+    """'FER' with its padlock was read by no pass: the whole camo was skipped."""
+    from trackcod.sheets import items_left
+    c = _fine_read("apparence_fin_fer_sans_titre")
+    assert c.section == "special" and "FER" in c.name_fr and items_left(c.access_text) == 15
+    assert c.challenge_fr == "Faites 20 éliminations de joueurs par tirs de loin."

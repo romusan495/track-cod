@@ -33,7 +33,7 @@ UNCLIP = 1.6           # DB box growth (area * ratio / perimeter)
 REC_HEIGHT = 48
 TEXT_SCORE = 0.5       # mean character confidence of a kept line
 _LATIN = set(" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-             "ÀÂÄÆÇÈÉÊËÎÏÔŒÙÛÜŸàâäæçèéêëîïôœùûüÿ°«»’·•×")
+             "ÀÂÄÆÇÈÉÊËÎÏÔŒÙÛÜŸàâäæçèéêëîïôœùûüÿ°«»’·•×✓✔√")  # check marks: conditions met in Apparence
 
 _lock = threading.Lock()
 _engine = None
@@ -49,6 +49,7 @@ class _Engine:
         opts.intra_op_num_threads = THREADS
         opts.inter_op_num_threads = 1
         opts.log_severity_level = 3
+        opts.enable_cpu_mem_arena = False  # the arena kept every buffer: 1.6 GB after a few zones, 120 MB without
         providers = ["CPUExecutionProvider"]
         self.np = np
         self.det = ort.InferenceSession(str(folder / "det.onnx"), opts, providers=providers)

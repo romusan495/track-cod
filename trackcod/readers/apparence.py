@@ -18,7 +18,7 @@ _COUNTER = re.compile(r"(?<![\[\d])(\d{1,4})\s*/\s*(\d{1,4})(?![\]\d])")
 _SECTION_COUNT = re.compile(r"[\[(|lI]?\s*([0-9AEOUQD])\s*/\s*(\d)")
 _DIGIT_FIXES = str.maketrans({"O": "0", "o": "0", "l": "1", "I": "1", "|": "1"})
 _CATEGORY_WORDS = {"SPECIAL": "special", "ERUDIT": "erudit", "PRESTIGE": "prestige", "MILITAIRE": "military"}
-_CHECK_MARKS = {"✓", "✔", "V", "v", "J"}
+_CHECK_MARKS = {"✓", "✔", "√", "V", "v", "J"}
 _SAME_NAME = 80
 SECTION_MARK = "§SECTION:"   # synthetic OCR line carrying the section framed by the game (see _selected_section)
 _HIGHLIGHT_LEAD = 0.15
@@ -107,6 +107,48 @@ def ocr_apparence(img: Image.Image, raw: list[OcrLine] | None = None) -> list[Oc
     return lines + ([OcrLine(SECTION_MARK + section, 0, 0, 0, 0)] if section else [])
 
 
+def _fine_details(img: Image.Image, box: tuple[float, float, float, float]) -> list[OcrLine] | None:
+    from trackcod.ocr.paddle import ocr_zone
+
+    return ocr_zone(img, tuple(min(1.0, max(0.0, v)) for v in box))
+
+
+STRUCK = 0.85  # share of bright pixels on the brightest row through the text: the line drawn over a met condition
+
+
+def _struck_out(img: Image.Image, line: OcrLine) -> bool:
+    """A met condition or done challenge is crossed out (its check mark is too small for the OCR): one row through
+    the middle of the text is bright almost all along (0.96-0.99 on 17/11; 0.33-0.51 for text not crossed out)."""
+    import numpy as np
+
+    if sum(c.isalpha() for c in line.text) < 10:
+        return False
+    W, H = img.size
+    box = (int(line.x * W), int(line.y * H), int((line.x + line.w) * W), int((line.y + line.h) * H))
+    if box[2] - box[0] < 20 or box[3] - box[1] < 6:
+        return False
+    g = np.asarray(img.convert("L").crop(box), dtype=np.float32)
+    band = g[int(g.shape[0] * 0.3):int(g.shape[0] * 0.8)]
+    return band.size > 0 and float((band > 200).mean(axis=1).max()) >= STRUCK
+
+
+def _with_details(img: Image.Image, box: tuple[float, float, float, float], groups: list[list[OcrLine]]) -> list[OcrLine]:
+    """The details under the camo name (condition, challenge, counter). The fine OCR reads them whole ('Obtenez 7
+    arme(s) supplémentaire(s) en utilisant : PPSh-41', crossed-out conditions with their check mark) where the
+    Windows passes gave 'Obtenez supp e' (17/11), 4x faster: its lines replace every other read there. Without it,
+    three Windows passes (two thresholds and a zoom)."""
+    details = _fine_details(img, box)
+    if details is not None:
+        inside = lambda l: box[0] - 0.05 <= l.x <= box[2] and box[1] <= l.y <= box[3]
+        marks = [OcrLine("✓", l.x - 0.012, l.y, 0.006, l.h) for l in details if _struck_out(img, l)]
+        return _merge([[l for l in group if not inside(l)] for group in groups] + [details, marks])
+    return _merge(groups + [
+        _crop_ocr(img, box, lambda c: _threshold(c, 240, 2.0)),
+        _crop_ocr(img, box, lambda c: _threshold(c, 200, 2.0)),
+        _crop_ocr(img, box, lambda c: c.resize((c.width * 2, c.height * 2), Image.LANCZOS)),
+    ])
+
+
 def _ocr_apparence(img: Image.Image, raw: list[OcrLine] | None = None) -> list[OcrLine]:
     from trackcod.ocr.engine import ocr_image
 
@@ -117,14 +159,10 @@ def _ocr_apparence(img: Image.Image, raw: list[OcrLine] | None = None) -> list[O
         # Full game frame (fast path, ~0.4 s): headers re-read on the left panel only, details below the name.
         box = (name.x - 0.03, name.y + name.h, name.x + 0.4, name.y + name.h + 0.2)
         title = (name.x - 0.02, name.y - 0.015, name.x + 0.5, name.y + name.h + 0.015)
-        return _merge([
-            raw,
-            _crop_ocr(img, title, lambda c: _threshold(c, 230, 1.0)),  # title glyphs (digits, 'OR NOIR'...)
-            _crop_ocr(img, (0.0, 0.0, 0.32, 1.0), lambda c: _threshold(c, 170, 2.0)),
-            _crop_ocr(img, box, lambda c: _threshold(c, 240, 2.0)),
-            _crop_ocr(img, box, lambda c: _threshold(c, 200, 2.0)),
-            _crop_ocr(img, box, lambda c: c.resize((c.width * 2, c.height * 2), Image.LANCZOS)),
-        ])
+        head = [raw,
+                _crop_ocr(img, title, lambda c: _threshold(c, 230, 1.0)),  # title glyphs (digits, 'OR NOIR'...)
+                _crop_ocr(img, (0.0, 0.0, 0.32, 1.0), lambda c: _threshold(c, 170, 2.0))]
+        return _with_details(img, box, head)
     base = ocr_image(_threshold(img, 170, 2.0))
     groups = [base, ocr_image(_threshold(img, 225, 1.0)), raw]
 
@@ -136,12 +174,15 @@ def _ocr_apparence(img: Image.Image, raw: list[OcrLine] | None = None) -> list[O
                                 lambda c: _threshold(c, 230, 0.5, median=True)))
 
     # Full frames: the big name is read directly; details (access, challenge, counter) sit below it.
-    name = _name_line(raw + base)
+    every = [l for group in groups for l in group]
+    name = _name_line(every)  # also the name re-read above the challenge
     if name is not None:
-        box = (name.x - 0.03, name.y + name.h, name.x + 0.4, name.y + name.h + 0.2)
-        groups.append(_crop_ocr(img, box, lambda c: _threshold(c, 240, 2.0)))
-        groups.append(_crop_ocr(img, box, lambda c: _threshold(c, 200, 2.0)))
-        groups.append(_crop_ocr(img, box, lambda c: c.resize((c.width * 2, c.height * 2), Image.LANCZOS)))
+        return _with_details(img, (name.x - 0.03, name.y + name.h, name.x + 0.4, name.y + name.h + 0.2), groups)
+    # no title read at all ('FER' with its padlock, 17/11): the fine OCR reads the panel from above its category line
+    category = next((l for l in every if l.x > 0.3 and len(l.text.split()) <= 3
+                     and _strip_icons(norm(l.text)).split()[:1] in (["SPECIAL"], ["ERUDIT"], ["MILITAIRE"], ["PRESTIGE"])), None)
+    if category is not None:
+        return _with_details(img, (category.x - 0.03, category.y - 0.09, category.x + 0.4, category.y + 0.2), groups)
     return _merge(groups)
 
 
@@ -242,6 +283,12 @@ def _weapon(lines: list[OcrLine]) -> str | None:
     return None
 
 
+def _marked(lines: list[OcrLine], line: OcrLine) -> bool:
+    """A check mark left of the line (read by the OCR, or added for a crossed-out line by _with_details)."""
+    return line.text.strip()[:1] in "✓✔√" or any(
+        l.text.strip() in _CHECK_MARKS and l.x < line.x and abs(l.y - line.y) < line.h for l in lines)
+
+
 def read_apparence(lines: list[OcrLine], at: float) -> ApparenceReading | None:
     if not any(header_section(l) for l in lines) and not any(_is_challenge(l) for l in lines):
         return None
@@ -270,11 +317,14 @@ def read_apparence(lines: list[OcrLine], at: float) -> ApparenceReading | None:
                 progress = _counter(line.text)
                 if progress:
                     break
+        if progress is None and _marked(lines, ch):  # the challenge crossed out: done
+            goal = re.search(r"(\d+)\s*fois", text, re.I) or re.search(r"(\d+)", text)
+            n = int(goal.group(1)) if goal else 1  # '... sans mourir 15 fois': 15
+            progress = (n, n)
 
     access = next((l for l in lines if "BTENEZ" in norm(_strip_icons(l.text))
                    and name.y < l.y < zone_bottom), None)
-    checked = access is not None and any(
-        l.text.strip() in _CHECK_MARKS and l.x < access.x and abs(l.y - access.y) < access.h for l in lines)
+    checked = access is not None and _marked(lines, access)
     if progress is not None or checked:
         access_met: bool | None = True
     elif access is not None:
